@@ -10,9 +10,9 @@ function makeStrip(axis: "x" | "y") {
   const ref = { strip: null as RgbStrip | null, key: "", peaks: null as BandedPeaks | null };
   return (peaks: BandedPeaks, deck: Deck) => {
     const style = waveStyle() ?? "rgb";
-    const k = style + ":" + stemsKey(deck.stems as never) + ":" + peaks.overall.length;
+    const k = style + ":" + stemsKey(deck.stems, deck.stemLevels) + ":" + peaks.overall.length;
     if (ref.key !== k || ref.peaks !== peaks || !ref.strip) {
-      ref.strip = buildRgbStrip(peaks, stemsOn(deck.stems as never), axis, style);
+      ref.strip = buildRgbStrip(peaks, stemsOn(deck.stems, deck.stemLevels), axis, style);
       ref.key = k;
       ref.peaks = peaks;
     }
@@ -87,11 +87,11 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
       ctx.globalCompositeOperation = "source-over";
       const style = waveStyle();
       if (style && isZigzag() && pxPerSec > 260) {
-        drawZigzag(ctx, peaks, stemsOn(deck.stems as never), dur, t, pxPerSec, W, W / 2, 0, H, "x");
+        drawZigzag(ctx, peaks, stemsOn(deck.stems, deck.stemLevels), dur, t, pxPerSec, W, W / 2, 0, H, "x");
       } else if (style) {
         const strip = getStrip(peaks, deck);
         if (strip) for (let lane = 0; lane < settings.waveTracks; lane++) {
-          const on = settings.waveTracks === 1 ? stemsOn(deck.stems) : { bass: lane === 0 && deck.stems.bass.on, drums: lane === 0 && deck.stems.drums.on, vocals: lane === 1 && deck.stems.vocals.on, other: (settings.waveTracks === 2 ? lane === 1 : lane === 2) && deck.stems.other.on };
+          const on = settings.waveTracks === 1 ? stemsOn(deck.stems, deck.stemLevels) : { bass: lane === 0 && deck.stems.bass.on ? deck.stemLevels.bass : 0, drums: lane === 0 && deck.stems.drums.on ? deck.stemLevels.drums : 0, vocals: lane === 1 && deck.stems.vocals.on ? deck.stemLevels.vocals : 0, other: (settings.waveTracks === 2 ? lane === 1 : lane === 2) && deck.stems.other.on ? deck.stemLevels.other : 0 };
           const laneStrip = settings.waveTracks === 1 ? strip : getLaneStrip(lane, peaks, on);
           if (laneStrip) drawRgbStrip(ctx, laneStrip, dur, t, pxPerSec, W, W / 2, lane * H / settings.waveTracks, H / settings.waveTracks);
         }
@@ -104,12 +104,12 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
         ctx.moveTo(0, cy);
         for (let x = 0; x <= W; x += step) {
           const timeAt = t + (x - W / 2) / pxPerSec;
-          const v = smoothAt(arr, timeAt / secsPerBin) * cy * scale;
+          const v = smoothAt(arr, timeAt / secsPerBin) * deck.stemLevels[BAND_STEM[key as string]] * cy * scale;
           ctx.lineTo(x, cy - v);
         }
         for (let x = W; x >= 0; x -= step) {
           const timeAt = t + (x - W / 2) / pxPerSec;
-          const v = smoothAt(arr, timeAt / secsPerBin) * cy * scale;
+          const v = smoothAt(arr, timeAt / secsPerBin) * deck.stemLevels[BAND_STEM[key as string]] * cy * scale;
           ctx.lineTo(x, cy + v);
         }
         ctx.closePath();
