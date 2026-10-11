@@ -23,3 +23,6 @@
 - Keep sync tempo lock separate from phase alignment and re-anchor the playback clock before rate changes, because feedback pitch changes and retroactive clock scaling cause hunting and stutters.
 - Define parameterized visual/transition families in `src/lib/dj/videoPresets.ts` and composite them on the existing master canvas, because output recording and hidden deck previews must share the same picture.
 - Use a shared searchable effect browser for deck slots and master video selections, because small native selects cannot fit the full library on phones.
+- Keep Automix in one browser-side controller per mixer using the existing queue and decks, because screen visibility must not create competing playback clocks.
+- Schedule DNA direction changes on the audio clock and preserve every separated stem channel in scratch playback, because timer jitter and stereo-only scratch output disrupt cuts and stem routing.
+- Render separated eight-channel waveform peaks from their actual stem pairs and key waveform caches by stem levels, because visual mutes must follow the audio controls.
