@@ -1,11 +1,11 @@
 {
-  "asset_id": "f28d002e-321f-464c-8a8f-4079aaad3092",
-  "content_type": "audio/mpeg",
-  "created_at": "2026-10-08T15:02:28Z",
+  "version": 1,
+  "asset_id": "8e2e0678-2ff6-4044-a53b-4da82885c818",
+  "project_id": "2bb948d3-0561-416a-b58f-4ecedc5aa9b1",
+  "url": "/__l5e/assets-v1/8e2e0678-2ff6-4044-a53b-4da82885c818/ALL_THE_HITS.mp3",
+  "r2_key": "a/v1/2bb948d3-0561-416a-b58f-4ecedc5aa9b1/8e2e0678-2ff6-4044-a53b-4da82885c818/ALL_THE_HITS.mp3",
   "original_filename": "ALL_THE_HITS.mp3",
-  "project_id": "80c7def9-fa71-4a64-b9f1-788eb0193f27",
-  "r2_key": "a/v1/80c7def9-fa71-4a64-b9f1-788eb0193f27/f28d002e-321f-464c-8a8f-4079aaad3092/ALL_THE_HITS.mp3",
   "size": 201080,
-  "url": "/__l5e/assets-v1/f28d002e-321f-464c-8a8f-4079aaad3092/ALL_THE_HITS.mp3",
-  "version": 1
+  "content_type": "audio/mpeg",
+  "created_at": "2026-10-11T06:24:25Z"
 }

@@ -1,11 +1,11 @@
 {
-  "asset_id": "cfb68bc2-c1fa-4aa5-819f-7110be27d806",
-  "content_type": "image/webp",
-  "created_at": "2026-10-08T15:01:56Z",
+  "version": 1,
+  "asset_id": "385737d6-96b7-4992-8989-9a37671e18dc",
+  "project_id": "2bb948d3-0561-416a-b58f-4ecedc5aa9b1",
+  "url": "/__l5e/assets-v1/385737d6-96b7-4992-8989-9a37671e18dc/neon_skin_tete_de_lecture.jpg",
+  "r2_key": "a/v1/2bb948d3-0561-416a-b58f-4ecedc5aa9b1/385737d6-96b7-4992-8989-9a37671e18dc/neon_skin_tete_de_lecture.jpg",
   "original_filename": "neon_skin_tete_de_lecture.jpg",
-  "project_id": "80c7def9-fa71-4a64-b9f1-788eb0193f27",
-  "r2_key": "a/v1/80c7def9-fa71-4a64-b9f1-788eb0193f27/cfb68bc2-c1fa-4aa5-819f-7110be27d806/neon_skin_tete_de_lecture.jpg",
   "size": 51594,
-  "url": "/__l5e/assets-v1/cfb68bc2-c1fa-4aa5-819f-7110be27d806/neon_skin_tete_de_lecture.jpg",
-  "version": 1
+  "content_type": "image/webp",
+  "created_at": "2026-10-11T06:23:22Z"
 }

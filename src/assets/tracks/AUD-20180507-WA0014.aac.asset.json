@@ -1,11 +1,11 @@
 {
-  "asset_id": "a6918320-f6e3-4ed2-a009-1aca42aa7c3e",
-  "content_type": "audio/aac",
-  "created_at": "2026-10-08T15:02:31Z",
+  "version": 1,
+  "asset_id": "c8b7b387-5108-40db-a0a1-95e54c701ec6",
+  "project_id": "2bb948d3-0561-416a-b58f-4ecedc5aa9b1",
+  "url": "/__l5e/assets-v1/c8b7b387-5108-40db-a0a1-95e54c701ec6/AUD-20180507-WA0014.aac",
+  "r2_key": "a/v1/2bb948d3-0561-416a-b58f-4ecedc5aa9b1/c8b7b387-5108-40db-a0a1-95e54c701ec6/AUD-20180507-WA0014.aac",
   "original_filename": "AUD-20180507-WA0014.aac",
-  "project_id": "80c7def9-fa71-4a64-b9f1-788eb0193f27",
-  "r2_key": "a/v1/80c7def9-fa71-4a64-b9f1-788eb0193f27/a6918320-f6e3-4ed2-a009-1aca42aa7c3e/AUD-20180507-WA0014.aac",
   "size": 85413,
-  "url": "/__l5e/assets-v1/a6918320-f6e3-4ed2-a009-1aca42aa7c3e/AUD-20180507-WA0014.aac",
-  "version": 1
+  "content_type": "audio/aac",
+  "created_at": "2026-10-11T06:24:30Z"
 }
