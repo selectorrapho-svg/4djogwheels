@@ -1,14 +1,13 @@
 import { useRef, useState } from "react";
 import { Deck } from "@/lib/dj/engine";
 import { useDeck } from "@/lib/dj/useMixer";
-import { Grid2x2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Grid2x2, X } from "lucide-react";
+import { ScratchDnaPanel } from "./ScratchDnaPanel";
 import { Button } from "@/components/ui/button";
 
 const CUE_COLORS = ["#ff3b3b", "#ffcf3b", "#3bff8a", "#3bd2ff", "#a83bff", "#ff3bd2", "#ffffff", "#ff7a3b"];
-const LOOP_LENGTHS = ["1/32", "1/16", "1/8", "1/4", "1/2", "1", "2", "4", "8", "16", "32"];
-const LOOP_BEATS = [1 / 32, 1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8, 16, 32];
 
-/** Compact frosted side drawer with hot cues + loop sizes (djay-style pads). */
+/** Compact frosted side drawer with hot cues, pitch cues, skips and Scratch DNA (djay-style pads). */
 export function HotCuePanel({
   deck,
   accent,
@@ -22,8 +21,7 @@ export function HotCuePanel({
 }) {
   useDeck(deck);
   const [open, setOpen] = useState(false);
-  const [loopIdx, setLoopIdx] = useState(7);
-  const [mode, setMode] = useState<"Cue" | "Pitch Cue" | "Skip">("Cue");
+  const [mode, setMode] = useState<"Cue" | "Pitch Cue" | "Skip" | "Scratch DNA">("Cue");
   const hasAny = deck.hotCues.some(Boolean);
 
   return (
@@ -32,7 +30,7 @@ export function HotCuePanel({
         onClick={() => setOpen((o) => !o)}
         className={`w-9 h-9 rounded-full flex items-center justify-center ${open ? "dj-glass-on" : "dj-glass"}`}
         style={{ boxShadow: hasAny ? `0 0 10px ${accent}66, var(--glass-shadow)` : undefined }}
-        title="Hot cues & loops"
+        title="Hot cues & Scratch DNA"
       >
         <Grid2x2 className="w-4 h-4" style={{ color: hasAny ? accent : "var(--muted-foreground)" }} />
       </button>}
@@ -53,7 +51,7 @@ export function HotCuePanel({
             </button>}
           </div>
 
-          <div className="mb-2 grid grid-cols-3 gap-0.5 rounded-lg bg-secondary p-0.5 text-xs">{(["Cue", "Pitch Cue", "Skip"] as const).map(t => <button key={t} aria-pressed={mode === t} onClick={() => setMode(t)} className={`h-7 rounded-md ${mode === t ? "bg-background text-primary" : "text-muted-foreground"}`}>{t}</button>)}</div>
+          <div className="mb-2 grid grid-cols-4 gap-0.5 rounded-lg bg-secondary p-0.5 text-[11px]">{(["Cue", "Pitch Cue", "Skip", "Scratch DNA"] as const).map(t => <button key={t} aria-pressed={mode === t} onClick={() => setMode(t)} className={`h-7 rounded-md leading-none ${mode === t ? "bg-background text-primary" : "text-muted-foreground"}`}>{t === "Scratch DNA" ? "DNA" : t}</button>)}</div>
           {mode === "Cue" && <div className="grid grid-cols-4 gap-2">
             {Array.from({ length: 8 }).map((_, i) => (
               <HotCuePad key={i} deck={deck} index={i} color={CUE_COLORS[i]} hasCue={!!deck.hotCues[i]} />
@@ -61,41 +59,7 @@ export function HotCuePanel({
           </div>}
           {mode === "Pitch Cue" && <div className="grid grid-cols-4 gap-2">{[0, 1, 2, 3, -4, -3, -2, -1].map(st => <Button key={st} variant="ghost" data-tone={0} className="cue-pad h-12 justify-start gap-1 text-sm font-bold" aria-label={`Pitch cue ${st} semitones`} onClick={() => { if (!deck.hotCues[0]) deck.setHotCue(0); deck.triggerPitchCue(0, (Math.pow(2, st / 12) - 1) * 100); }}><span className="text-destructive">▶</span>{st > 0 ? `+${st}` : st}</Button>)}</div>}
           {mode === "Skip" && <div className="grid grid-cols-4 gap-2">{[-1, -2, -4, -8, 1, 2, 4, 8].map(b => <Button key={b} variant="ghost" data-tone={3} className="cue-pad h-12 text-sm font-bold" aria-label={`Skip ${b} beats`} onClick={() => deck.skipBeats(b)}>{b > 0 ? `+${b}` : b}</Button>)}</div>}
-
-          <div className="mt-3 text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Loop</div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => {
-                const n = Math.max(0, loopIdx - 1);
-                setLoopIdx(n);
-                if (deck.loopActive) deck.setLoopBeats(LOOP_BEATS[n]);
-              }}
-              className="w-7 h-7 grid place-items-center rounded-full dj-glass"
-              aria-label="Halve loop"
-            >
-              <ChevronLeft className="w-3 h-3" />
-            </button>
-            <button
-              onClick={() => deck.toggleLoop(LOOP_BEATS[loopIdx])}
-              className={`flex-1 h-7 rounded-full text-[10px] font-bold tabular-nums ${
-                deck.loopActive ? "dj-glass-on" : "dj-glass"
-              }`}
-              style={{ color: deck.loopActive ? "#3bff8a" : accent }}
-            >
-              ↻ {LOOP_LENGTHS[loopIdx]}
-            </button>
-            <button
-              onClick={() => {
-                const n = Math.min(LOOP_LENGTHS.length - 1, loopIdx + 1);
-                setLoopIdx(n);
-                if (deck.loopActive) deck.setLoopBeats(LOOP_BEATS[n]);
-              }}
-              className="w-7 h-7 grid place-items-center rounded-full dj-glass"
-              aria-label="Double loop"
-            >
-              <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
+          {mode === "Scratch DNA" && <ScratchDnaPanel deck={deck} accent={accent} />}
           <div className="mt-2 text-[8px] text-muted-foreground leading-tight">
             Tap empty pad to set · hold to play momentary · long-press (right-click) to clear.
           </div>
