@@ -1,5 +1,13 @@
 # Task roadmap
 
+## October 11 scratch and reference controls
+- [ ] Remove scratch ticking while keeping sharp, position-locked jog response.
+- [ ] Add accessible DNA editing and selection of the scratch starting point.
+- [ ] Make all waveform views follow muted stem levels, including green vocals.
+- [ ] Add a working queue-based Automix view accessible from Settings.
+- [ ] Match reference mixer/library controls and Settings on/off switches; retain portrait logo.
+- [ ] Verify audio processing, loaded-track controls and portrait/landscape layouts.
+
 ## October 11 playback and mixer
 - [x] Remove A/V from the FX library.
 - [x] Improve continuous jog scratching and native Android position control.
