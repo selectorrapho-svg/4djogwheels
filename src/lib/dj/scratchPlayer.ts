@@ -134,7 +134,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
       const f = this.pos - i;
       // A stationary platter must be silent: repeatedly outputting the same
       // sample creates a DC/buzzy tone on some Bluetooth and phone outputs.
-      const slow = Math.min(1, Math.abs(this.rate) * 8);
+      const slow = Math.min(1, Math.abs(this.rate) * 40);
       for (let c = 0; c < out.length; c++) {
         const src = this.ch[c < this.ch.length ? c : this.ch.length - 1];
         const value = i >= 2 && i + 3 < src.length ? this.lagrange6(src, i, f) : this.hermite(src, i, f);
