@@ -1,11 +1,11 @@
 {
-  "asset_id": "f4385254-f6d1-4487-8389-adf876fcf992",
-  "content_type": "image/png",
-  "created_at": "2026-10-08T15:03:02Z",
+  "version": 1,
+  "asset_id": "df1799c6-99ae-4495-a004-950ad05a8dfa",
+  "project_id": "2bb948d3-0561-416a-b58f-4ecedc5aa9b1",
+  "url": "/__l5e/assets-v1/df1799c6-99ae-4495-a004-950ad05a8dfa/mixrdjspro-splash.png",
+  "r2_key": "a/v1/2bb948d3-0561-416a-b58f-4ecedc5aa9b1/df1799c6-99ae-4495-a004-950ad05a8dfa/mixrdjspro-splash.png",
   "original_filename": "mixrdjspro-splash.png",
-  "project_id": "80c7def9-fa71-4a64-b9f1-788eb0193f27",
-  "r2_key": "a/v1/80c7def9-fa71-4a64-b9f1-788eb0193f27/f4385254-f6d1-4487-8389-adf876fcf992/mixrdjspro-splash.png",
   "size": 488311,
-  "url": "/__l5e/assets-v1/f4385254-f6d1-4487-8389-adf876fcf992/mixrdjspro-splash.png",
-  "version": 1
+  "content_type": "image/png",
+  "created_at": "2026-10-11T06:23:46Z"
 }

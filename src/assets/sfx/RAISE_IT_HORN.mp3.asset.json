@@ -1,11 +1,11 @@
 {
-  "asset_id": "be626c01-48d4-457b-9db6-7a0c43107d76",
-  "content_type": "audio/mpeg",
-  "created_at": "2026-10-08T15:02:25Z",
+  "version": 1,
+  "asset_id": "41b5ed08-a991-4393-b878-5cd35a2888f6",
+  "project_id": "2bb948d3-0561-416a-b58f-4ecedc5aa9b1",
+  "url": "/__l5e/assets-v1/41b5ed08-a991-4393-b878-5cd35a2888f6/RAISE_IT_HORN.mp3",
+  "r2_key": "a/v1/2bb948d3-0561-416a-b58f-4ecedc5aa9b1/41b5ed08-a991-4393-b878-5cd35a2888f6/RAISE_IT_HORN.mp3",
   "original_filename": "RAISE_IT_HORN.mp3",
-  "project_id": "80c7def9-fa71-4a64-b9f1-788eb0193f27",
-  "r2_key": "a/v1/80c7def9-fa71-4a64-b9f1-788eb0193f27/be626c01-48d4-457b-9db6-7a0c43107d76/RAISE_IT_HORN.mp3",
   "size": 317624,
-  "url": "/__l5e/assets-v1/be626c01-48d4-457b-9db6-7a0c43107d76/RAISE_IT_HORN.mp3",
-  "version": 1
+  "content_type": "audio/mpeg",
+  "created_at": "2026-10-11T06:24:15Z"
 }

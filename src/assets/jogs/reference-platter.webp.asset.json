@@ -1,11 +1,11 @@
 {
-  "asset_id": "a3f209a0-f55f-439c-9461-a082a2bf288d",
-  "content_type": "image/webp",
-  "created_at": "2026-10-08T15:02:03Z",
+  "version": 1,
+  "asset_id": "dc316e5a-7787-4519-9bd9-2f3fa2755ce6",
+  "project_id": "2bb948d3-0561-416a-b58f-4ecedc5aa9b1",
+  "url": "/__l5e/assets-v1/dc316e5a-7787-4519-9bd9-2f3fa2755ce6/jog-reference-platter.webp",
+  "r2_key": "a/v1/2bb948d3-0561-416a-b58f-4ecedc5aa9b1/dc316e5a-7787-4519-9bd9-2f3fa2755ce6/jog-reference-platter.webp",
   "original_filename": "jog-reference-platter.webp",
-  "project_id": "80c7def9-fa71-4a64-b9f1-788eb0193f27",
-  "r2_key": "a/v1/80c7def9-fa71-4a64-b9f1-788eb0193f27/a3f209a0-f55f-439c-9461-a082a2bf288d/jog-reference-platter.webp",
   "size": 38438,
-  "url": "/__l5e/assets-v1/a3f209a0-f55f-439c-9461-a082a2bf288d/jog-reference-platter.webp",
-  "version": 1
+  "content_type": "image/webp",
+  "created_at": "2026-10-11T06:23:32Z"
 }

@@ -1,11 +1,11 @@
 {
-  "asset_id": "26e38687-f0dd-4154-bbef-a850924fc22d",
-  "content_type": "image/jpeg",
-  "created_at": "2026-10-08T15:01:50Z",
+  "version": 1,
+  "asset_id": "fe624a62-c4b2-4741-a28b-4f965e440c99",
+  "project_id": "2bb948d3-0561-416a-b58f-4ecedc5aa9b1",
+  "url": "/__l5e/assets-v1/fe624a62-c4b2-4741-a28b-4f965e440c99/jog-pioneer.jpeg",
+  "r2_key": "a/v1/2bb948d3-0561-416a-b58f-4ecedc5aa9b1/fe624a62-c4b2-4741-a28b-4f965e440c99/jog-pioneer.jpeg",
   "original_filename": "jog-pioneer.jpeg",
-  "project_id": "80c7def9-fa71-4a64-b9f1-788eb0193f27",
-  "r2_key": "a/v1/80c7def9-fa71-4a64-b9f1-788eb0193f27/26e38687-f0dd-4154-bbef-a850924fc22d/jog-pioneer.jpeg",
   "size": 7022,
-  "url": "/__l5e/assets-v1/26e38687-f0dd-4154-bbef-a850924fc22d/jog-pioneer.jpeg",
-  "version": 1
+  "content_type": "image/jpeg",
+  "created_at": "2026-10-11T06:23:14Z"
 }

@@ -1,11 +1,11 @@
 {
-  "asset_id": "0c051a1f-9eb0-426b-bbfb-031b503b93cc",
-  "content_type": "image/jpeg",
-  "created_at": "2026-10-08T15:03:00Z",
+  "version": 1,
+  "asset_id": "1d9d0842-bb98-4acb-8d8e-e6c0b736eae6",
+  "project_id": "2bb948d3-0561-416a-b58f-4ecedc5aa9b1",
+  "url": "/__l5e/assets-v1/1d9d0842-bb98-4acb-8d8e-e6c0b736eae6/mix4deejays-logo.jpg",
+  "r2_key": "a/v1/2bb948d3-0561-416a-b58f-4ecedc5aa9b1/1d9d0842-bb98-4acb-8d8e-e6c0b736eae6/mix4deejays-logo.jpg",
   "original_filename": "mix4deejays-logo.jpg",
-  "project_id": "80c7def9-fa71-4a64-b9f1-788eb0193f27",
-  "r2_key": "a/v1/80c7def9-fa71-4a64-b9f1-788eb0193f27/0c051a1f-9eb0-426b-bbfb-031b503b93cc/mix4deejays-logo.jpg",
   "size": 46632,
-  "url": "/__l5e/assets-v1/0c051a1f-9eb0-426b-bbfb-031b503b93cc/mix4deejays-logo.jpg",
-  "version": 1
+  "content_type": "image/jpeg",
+  "created_at": "2026-10-11T06:23:42Z"
 }
