@@ -256,8 +256,14 @@ export class ScratchPlayer {
     this.send(buffer);
     this.node.port.postMessage({ type: "start", pos, rate: this.pendingRate });
     this.starting = false;
-    if (this.pendingTarget) this.node.port.postMessage({ type: "target", ...this.pendingTarget });
+    this.flushTarget();
     return true;
+  }
+
+  private flushTarget() {
+    const target = this.pendingTarget;
+    if (target) this.node?.port.postMessage({ type: "target", pos: target.pos, vel: target.vel });
+    this.pendingTarget = null;
   }
 
   /** Upload the track to the worklet ahead of time so the first scratch has no hitch. */

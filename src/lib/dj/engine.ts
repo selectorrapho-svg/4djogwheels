@@ -1867,6 +1867,22 @@ const peakCache = new WeakMap<AudioBuffer, Map<number, BandedPeaks>>();
 export function computeBandedPeaks(buffer: AudioBuffer, bins: number): BandedPeaks {
   const cached = peakCache.get(buffer)?.get(bins);
   if (cached) return cached;
+  if (buffer.numberOfChannels === 8) {
+    const peaks: BandedPeaks = { overall: new Float32Array(bins), sub: new Float32Array(bins), bass: new Float32Array(bins), lowMid: new Float32Array(bins), mid: new Float32Array(bins), presence: new Float32Array(bins), high: new Float32Array(bins) };
+    // Real separated stereo pairs: drums, bass, harmonic, vocals.
+    STEM_ORDER.forEach((stem, pair) => {
+      const left = buffer.getChannelData(pair * 2), right = buffer.getChannelData(pair * 2 + 1);
+      const band = stem === "drums" ? peaks.lowMid : stem === "bass" ? peaks.bass : stem === "vocals" ? peaks.mid : peaks.high;
+      for (let bin = 0; bin < bins; bin++) {
+        const start = Math.floor(bin * buffer.length / bins), end = Math.floor((bin + 1) * buffer.length / bins);
+        let energy = 0;
+        for (let i = start; i < end; i++) energy = Math.max(energy, Math.abs(left[i]), Math.abs(right[i]));
+        band[bin] = energy; peaks.overall[bin] += energy;
+      }
+    });
+    const cache = peakCache.get(buffer) ?? new Map<number, BandedPeaks>();
+    cache.set(bins, peaks); peakCache.set(buffer, cache); return peaks;
+  }
   const data = buffer.getChannelData(0);
   const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : data;
   const sr = buffer.sampleRate;
