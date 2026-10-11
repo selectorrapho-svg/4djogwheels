@@ -102,16 +102,24 @@ class ScratchProcessor extends AudioWorkletProcessor {
     const k = 1 - Math.exp(-1 / (tau * sampleRate));
     // Position servo constants (allocation-free, computed once per block).
     const servo = 1 / (0.0045 * sampleRate);      // close position error in ~4.5 ms
-    const kSm = 1 - Math.exp(-1 / (0.0005 * sampleRate)); // 0.5 ms anti-zipper
-    const maxAge = 0.009 * sampleRate;            // extrapolate hand motion ≤9 ms
+    const kSm = 1 - Math.exp(-1 / (0.0012 * sampleRate)); // 1.2 ms anti-zipper
+    // Extrapolate the hand for well over one display frame (60 Hz = 16.7 ms).
+    // The old 9 ms cut-out dropped the platter to zero velocity mid-frame,
+    // which gated the audio on every frame and sounded like cuts, not vinyl.
+    const maxAge = 0.04 * sampleRate;             // extrapolate hand motion ≤40 ms
+    const vDecay = Math.exp(-1 / (0.09 * sampleRate)); // gentle coast after that
     for (let s = 0; s < len; s++) {
       if (this.mode === 'pos') {
-        const a = this.age < maxAge ? this.age : maxAge;
-        const goal = this.tPos + this.tVel * a;
-        const vel = this.age < maxAge ? this.tVel : 0;
-        let desired = vel + (goal - this.pos) * servo;
-        if (desired > 24) desired = 24; else if (desired < -24) desired = -24;
-        this.rate += (desired - this.rate) * kSm;
+        if (this.age < maxAge) {
+          const goal = this.tPos + this.tVel * this.age;
+          let desired = this.tVel + (goal - this.pos) * servo;
+          if (desired > 24) desired = 24; else if (desired < -24) desired = -24;
+          this.rate += (desired - this.rate) * kSm;
+        } else {
+          // No fresh hand data: coast down smoothly instead of hard-stopping.
+          this.rate *= vDecay;
+          if (Math.abs(this.rate) < 0.001) this.rate = 0;
+        }
         this.age++;
       } else {
         this.rate += (this.target - this.rate) * k;
