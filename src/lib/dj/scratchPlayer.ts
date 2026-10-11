@@ -101,20 +101,25 @@ class ScratchProcessor extends AudioWorkletProcessor {
     const tau = this.motorTau > 0.0011 ? this.motorTau : reversing ? 0.002 : jump > 2 ? 0.0012 : 0.0009;
     const k = 1 - Math.exp(-1 / (tau * sampleRate));
     // Position servo constants (allocation-free, computed once per block).
-    const servo = 1 / (0.0045 * sampleRate);      // close position error in ~4.5 ms
-    const kSm = 1 - Math.exp(-1 / (0.0012 * sampleRate)); // 1.2 ms anti-zipper
+    // Adaptive "mass-spring" response (turntable-style): small hand wobble is
+    // smoothed, but a hard push or direction flip snaps instantly so cuts,
+    // chirps and transforms keep their sharp attack like real DJ software.
+    const servoSoft = 1 / (0.0045 * sampleRate);
+    const servoHard = 1 / (0.0015 * sampleRate);
+    const kSoft = 1 - Math.exp(-1 / (0.0012 * sampleRate));
+    const kHard = 1 - Math.exp(-1 / (0.00025 * sampleRate));
     // Extrapolate the hand for well over one display frame (60 Hz = 16.7 ms).
-    // The old 9 ms cut-out dropped the platter to zero velocity mid-frame,
-    // which gated the audio on every frame and sounded like cuts, not vinyl.
     const maxAge = 0.04 * sampleRate;             // extrapolate hand motion ≤40 ms
     const vDecay = Math.exp(-1 / (0.09 * sampleRate)); // gentle coast after that
     for (let s = 0; s < len; s++) {
       if (this.mode === 'pos') {
         if (this.age < maxAge) {
           const goal = this.tPos + this.tVel * this.age;
-          let desired = this.tVel + (goal - this.pos) * servo;
+          const flip = this.tVel * this.rate < 0;
+          const hard = flip || Math.abs(this.tVel - this.rate) > 0.3;
+          let desired = this.tVel + (goal - this.pos) * (hard ? servoHard : servoSoft);
           if (desired > 24) desired = 24; else if (desired < -24) desired = -24;
-          this.rate += (desired - this.rate) * kSm;
+          this.rate += (desired - this.rate) * (hard ? kHard : kSoft);
         } else {
           // No fresh hand data: coast down smoothly instead of hard-stopping.
           this.rate *= vDecay;
@@ -129,7 +134,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
       const f = this.pos - i;
       // A stationary platter must be silent: repeatedly outputting the same
       // sample creates a DC/buzzy tone on some Bluetooth and phone outputs.
-      const slow = Math.min(1, Math.abs(this.rate) * 8);
+      const slow = Math.min(1, Math.abs(this.rate) * 40);
       for (let c = 0; c < out.length; c++) {
         const src = this.ch[c < this.ch.length ? c : this.ch.length - 1];
         const value = i >= 2 && i + 3 < src.length ? this.lagrange6(src, i, f) : this.hermite(src, i, f);
