@@ -48,6 +48,9 @@
   --cue-pink: oklch(0.7 0.23 345);
   --settings-row: oklch(0.3 0 0);
   --settings-avatar: oklch(0.55 0 0);
+  --switch-on: oklch(0.75 0.22 145);
+  --switch-thumb: oklch(0.99 0 0);
+  --control-blue: oklch(0.7 0.17 240);
   /* DJ console dark theme */
   --background: oklch(0.13 0.005 250);
   --foreground: oklch(0.96 0.005 250);
@@ -469,6 +472,17 @@
 .effect-browser, .reference-menu { --popover: var(--reference-panel); --secondary: var(--reference-row); --foreground: var(--reference-text); --primary: var(--reference-selection); --primary-foreground: var(--reference-text); --muted-foreground: oklch(0.82 0 0); background: var(--popover); color: var(--foreground); }
 .reference-menu { z-index: 350; backdrop-filter: none; }
 .stems-panel { box-shadow: var(--glass-shadow); }
+.settings-sheet { --primary: var(--control-blue); --primary-foreground: var(--switch-thumb); }
+.settings-sheet label:has([role="switch"]) { min-height: 44px; gap: 16px; margin: 0; padding: 8px 12px; background: var(--settings-row); border-bottom: 1px solid var(--border); color: var(--foreground); font-size: 13px; }
+.settings-sheet label:has([role="switch"]):first-of-type { border-radius: 8px 8px 0 0; }
+.settings-sheet label:has([role="switch"]):last-of-type { border-radius: 0 0 8px 8px; border-bottom: 0; }
+.settings-sheet [role="switch"] { height: 28px; width: 48px; }
+.settings-sheet [role="switch"][data-state="checked"] { background: var(--switch-on); }
+.settings-sheet [role="switch"] > span { height: 24px; width: 24px; background: var(--switch-thumb); }
+.settings-sheet [role="switch"] > span[data-state="checked"] { transform: translateX(20px); }
+.automix-screen { --primary: var(--control-blue); --primary-foreground: var(--switch-thumb); }
+.library-reference { --primary: var(--cue-pink); --primary-foreground: var(--foreground); }
+.library-reference .reference-menu { --primary: var(--reference-selection); }
 .fx-drawer button[aria-pressed="true"] { color: var(--foreground); background: var(--muted); }
 @media (orientation: landscape) {
   .dj-glass, .dj-glass-on, .dj-cap, .dj-panel, .cue-pad { backdrop-filter: none; }

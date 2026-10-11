@@ -12,7 +12,7 @@
  * speed is identical no matter how fast the pointer events arrive.
  */
 
-const PROCESSOR = `
+export const SCRATCH_PROCESSOR = `
 class ScratchProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -22,6 +22,10 @@ class ScratchProcessor extends AudioWorkletProcessor {
     this.target = 0;
     this.on = false;
     this.frame = 0;
+    this.envelope = 0;
+    this.motionGain = 0;
+    this.dcX = []; this.dcY = [];
+    this.events = [];
     // 'rate' = follow a signed speed (motor / brake / backspin)
     // 'pos'  = position servo: follow the platter's absolute position so the
     //          audio can never drift away from the hand (no velocity integration).
@@ -32,7 +36,9 @@ class ScratchProcessor extends AudioWorkletProcessor {
       const d = e.data;
       if (d.type === 'buffer') {
         this.ch = d.channels.map((c) => new Float32Array(c));
+        this.dcX = this.ch.map(() => 0); this.dcY = this.ch.map(() => 0);
       } else if (d.type === 'start') {
+        this.events = []; this.envelope = 0; this.motionGain = 0;
         this.pos = d.pos * sampleRate;
         this.rate = d.rate || 0;
         this.target = this.rate;
@@ -40,8 +46,13 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.mode = 'pos';
         this.on = true;
       } else if (d.type === 'rate') {
-        this.target = Number.isFinite(d.rate) ? d.rate : 0;
-        this.mode = 'rate'; this.motorTau = 0.0009;
+        if (Number.isFinite(d.when) && d.when > currentTime) {
+          this.events.push({ frame: Math.round(d.when * sampleRate), rate: d.rate });
+          this.events.sort((a, b) => a.frame - b.frame);
+        } else {
+          this.target = Number.isFinite(d.rate) ? d.rate : 0;
+          this.mode = 'rate'; this.motorTau = 0.0009;
+        }
       } else if (d.type === 'target') {
         // Absolute platter position (seconds) + hand velocity (sec/sec).
         this.tPos = d.pos * sampleRate;
@@ -57,8 +68,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.pos = d.pos * sampleRate;
       } else if (d.type === 'stop') {
         this.on = false;
-        this.rate = 0;
-        this.target = 0;
+        this.events = [];
         this.port.postMessage({ type: 'pos', pos: this.pos / sampleRate, final: true });
       }
     };
@@ -91,7 +101,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
   process(_inputs, outputs) {
     const out = outputs[0];
     const len = out[0].length;
-    if (!this.on || this.ch.length === 0) {
+    if ((!this.on && this.envelope < 0.00001) || this.ch.length === 0) {
       for (let c = 0; c < out.length; c++) out[c].fill(0);
       return true;
     }
@@ -111,7 +121,14 @@ class ScratchProcessor extends AudioWorkletProcessor {
     // Extrapolate the hand for well over one display frame (60 Hz = 16.7 ms).
     const maxAge = 0.04 * sampleRate;             // extrapolate hand motion ≤40 ms
     const vDecay = Math.exp(-1 / (0.09 * sampleRate)); // gentle coast after that
+    const gainK = 1 - Math.exp(-1 / (0.001 * sampleRate));
+    const dcPole = Math.exp(-2 * Math.PI * 5 / sampleRate);
     for (let s = 0; s < len; s++) {
+      while (this.events.length && this.events[0].frame <= currentFrame + s) {
+        const event = this.events.shift();
+        this.target = Number.isFinite(event.rate) ? event.rate : 0;
+        this.mode = 'rate';
+      }
       if (this.mode === 'pos') {
         if (this.age < maxAge) {
           const goal = this.tPos + this.tVel * this.age;
@@ -135,16 +152,20 @@ class ScratchProcessor extends AudioWorkletProcessor {
       // A stationary platter must be silent: repeatedly outputting the same
       // sample creates a DC/buzzy tone on some Bluetooth and phone outputs.
       const slow = Math.min(1, Math.abs(this.rate) * 40);
+      this.motionGain += (slow - this.motionGain) * gainK;
+      this.envelope += ((this.on ? 1 : 0) - this.envelope) * gainK;
       for (let c = 0; c < out.length; c++) {
         const src = this.ch[c < this.ch.length ? c : this.ch.length - 1];
-        const value = i >= 2 && i + 3 < src.length ? this.lagrange6(src, i, f) : this.hermite(src, i, f);
-        out[c][s] = Math.max(-1.08, Math.min(1.08, value)) * slow;
+        const value = this.lagrange6(src, i, f);
+        const filtered = value - (this.dcX[c] || 0) + dcPole * (this.dcY[c] || 0);
+        this.dcX[c] = value; this.dcY[c] = filtered;
+        out[c][s] = filtered * this.motionGain * this.envelope;
       }
       this.pos += this.rate;
       if (this.pos < 0) { this.pos = 0; this.rate = 0; this.target = 0; this.tVel = 0; if (this.tPos < 0) this.tPos = 0; }
       if (this.pos > n - 2) { this.pos = n - 2; this.rate = 0; this.target = 0; this.tVel = 0; if (this.tPos > n - 2) this.tPos = n - 2; }
     }
-    this.port.postMessage({ type: 'pos', pos: this.pos / sampleRate, rate: this.rate });
+    if (++this.frame % 4 === 0) this.port.postMessage({ type: 'pos', pos: this.pos / sampleRate, rate: this.rate });
     return true;
   }
 }
@@ -155,7 +176,7 @@ const loaded = new WeakSet<AudioContext>();
 
 async function ensureModule(ctx: AudioContext) {
   if (loaded.has(ctx)) return;
-  const url = URL.createObjectURL(new Blob([PROCESSOR], { type: "application/javascript" }));
+  const url = URL.createObjectURL(new Blob([SCRATCH_PROCESSOR], { type: "application/javascript" }));
   try {
     await ctx.audioWorklet.addModule(url);
     loaded.add(ctx);
@@ -170,6 +191,9 @@ export class ScratchPlayer {
   private ready: Promise<void>;
   private pendingRate = 0;
   private generation = 0;
+  private channels = 2;
+  private starting = false;
+  private pendingTarget: { pos: number; vel: number } | null = null;
   /** Last speed reported by the worklet (sec/sec), used for release hand-off. */
   liveRate = 0;
   /** Called ~every 512 frames with the live playhead position (seconds). */
@@ -182,10 +206,18 @@ export class ScratchPlayer {
   private async init() {
     try {
       await ensureModule(this.ctx);
+      this.createNode(2);
+    } catch {
+      this.node = null;
+    }
+  }
+
+  private createNode(channels: number) {
+      this.node?.disconnect();
       const node = new AudioWorkletNode(this.ctx, "scratch-processor", {
         numberOfInputs: 0,
         numberOfOutputs: 1,
-        outputChannelCount: [2],
+        outputChannelCount: [channels],
       });
       node.port.onmessage = (e: MessageEvent) => {
         const d = e.data as { type?: string; pos?: number; rate?: number };
@@ -194,9 +226,8 @@ export class ScratchPlayer {
       };
       node.connect(this.dest);
       this.node = node;
-    } catch {
-      this.node = null;
-    }
+      this.channels = channels;
+      this.sent = null;
   }
 
   get available() {
@@ -205,8 +236,9 @@ export class ScratchPlayer {
 
   private send(buffer: AudioBuffer) {
     if (!this.node || this.sent === buffer) return;
+    if (this.channels !== buffer.numberOfChannels) this.createNode(buffer.numberOfChannels);
     const channels: ArrayBuffer[] = [];
-    const count = Math.min(2, buffer.numberOfChannels);
+    const count = buffer.numberOfChannels;
     for (let c = 0; c < count; c++) {
       channels.push(buffer.getChannelData(c).slice().buffer);
     }
@@ -216,12 +248,22 @@ export class ScratchPlayer {
 
   async start(buffer: AudioBuffer, pos: number, rate = 0) {
     const generation = ++this.generation;
+    this.starting = true;
+    this.pendingTarget = null;
     this.pendingRate = rate;
     await this.ready;
     if (!this.node || generation !== this.generation) return false;
     this.send(buffer);
     this.node.port.postMessage({ type: "start", pos, rate: this.pendingRate });
+    this.starting = false;
+    this.flushTarget();
     return true;
+  }
+
+  private flushTarget() {
+    const target = this.pendingTarget;
+    if (target) this.node?.port.postMessage({ type: "target", pos: target.pos, vel: target.vel });
+    this.pendingTarget = null;
   }
 
   /** Upload the track to the worklet ahead of time so the first scratch has no hitch. */
@@ -230,13 +272,14 @@ export class ScratchPlayer {
     this.send(buffer);
   }
 
-  setRate(rate: number) {
+  setRate(rate: number, when?: number) {
     this.pendingRate = rate;
-    this.node?.port.postMessage({ type: "rate", rate });
+    this.node?.port.postMessage({ type: "rate", rate, when });
   }
 
   /** Position-servo scratch: absolute platter position (s) + hand velocity. */
   setTarget(pos: number, vel: number) {
+    if (this.starting) { this.pendingTarget = { pos, vel }; return; }
     this.node?.port.postMessage({ type: "target", pos, vel });
   }
 
@@ -251,6 +294,7 @@ export class ScratchPlayer {
 
   stop() {
     ++this.generation;
+    this.starting = false;
     this.pendingRate = 0;
     this.node?.port.postMessage({ type: "stop" });
   }

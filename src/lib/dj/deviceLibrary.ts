@@ -1,7 +1,7 @@
 import { LIBRARY, type LibraryTrack } from '@/assets/library';
 import { readAlbumArt } from './albumArt';
 
-export type DeviceTrack = LibraryTrack & { file?: File; handle?: FileSystemFileHandle; kind?: 'audio' | 'video'; native?: boolean; artworkUrl?: string | null };
+export type DeviceTrack = LibraryTrack & { file?: File; handle?: FileSystemFileHandle; kind?: 'audio' | 'video'; native?: boolean; artworkUrl?: string | null; bpm?: number; firstBeat?: number };
 type DirectoryPicker = () => Promise<FileSystemDirectoryHandle>;
 const CACHE_KEY = 'mixrdjspro-library-directory';
 let tracks: DeviceTrack[] = [...LIBRARY];
@@ -61,7 +61,9 @@ export const deviceLibrary = {
     tracks = [...found, ...tracks.filter(t => !t.handle)]; publish();
     queueArtwork(found);
   },
+  setAnalysis(track: DeviceTrack, bpm: number, firstBeat: number) { track.bpm = bpm; track.firstBeat = firstBeat; publish(); },
   addQueue(track: DeviceTrack) { queue = [...queue, track]; publish(); },
+  removeQueue(track: DeviceTrack) { const index = queue.indexOf(track); if (index >= 0) { queue = queue.filter((_, i) => i !== index); publish(); } },
   addAllQueue(items: DeviceTrack[]) { queue = [...queue, ...items]; publish(); },
   addPlaylist(name: string, items: DeviceTrack[]) { playlists = { ...playlists, [name]: [...(playlists[name] ?? []), ...items] }; publish(); },
 };

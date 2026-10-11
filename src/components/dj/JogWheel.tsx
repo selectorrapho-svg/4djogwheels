@@ -158,8 +158,8 @@ export function JogWheel({ deck, size, accent }: Props) {
       const meas = startPos + angleToSeconds(cum, sens());
       const pred = ab.x + ab.v * dt;
       const r = meas - pred;
-      ab.x = pred + 0.55 * r;
-      ab.v = Math.max(-16, Math.min(16, ab.v + (0.18 * r) / dt));
+       ab.x = pred + 0.85 * r;
+       ab.v = Math.max(-16, Math.min(16, ab.v + (0.3 * r) / dt));
       if (Math.abs(ab.v) < 0.015 && v === 0) ab.v = 0;
       deck.scratchTo(ab.x, ab.v);
       rotRef.current = (((rotStart + (cum * 180) / Math.PI) % 360) + 360) % 360;

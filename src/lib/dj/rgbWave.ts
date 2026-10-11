@@ -9,7 +9,7 @@ import { BAND_STEM } from "./wavedraw";
 // Speed: the whole track is rendered ONCE into an offscreen strip, then each
 // animation frame just blits the visible slice with drawImage (GPU-scaled).
 
-type StemsOn = Record<"bass" | "drums" | "vocals" | "other", boolean>;
+type StemsOn = Record<"bass" | "drums" | "vocals" | "other", boolean | number>;
 
 export interface RgbStrip {
   canvas: HTMLCanvasElement;
@@ -21,16 +21,17 @@ const STRIP_AMP = 256; // amplitude resolution (pixels across the strip)
 const MAX_BINS = 16000;
 
 export function rgbColumns(peaks: BandedPeaks, stems: StemsOn) {
-  const on = (k: keyof BandedPeaks) => (k === "overall" ? true : stems[BAND_STEM[k as string]]);
+  const level = (k: keyof BandedPeaks) => k === "overall" ? 1 : Number(stems[BAND_STEM[k as string]]);
   const n = peaks.overall.length;
   const low = new Float32Array(n);
   const mid = new Float32Array(n);
   const high = new Float32Array(n);
   let maxAll = 1e-6;
   for (let i = 0; i < n; i++) {
-    const l = (on("sub") ? peaks.sub[i] : 0) + (on("bass") ? peaks.bass[i] : 0);
-    const m = (on("lowMid") ? peaks.lowMid[i] : 0) + (on("mid") ? peaks.mid[i] : 0);
-    const h = ((on("presence") ? peaks.presence[i] : 0) + (on("high") ? peaks.high[i] : 0)) * 1.6;
+    // Keep green exclusive to vocals; drums retain red/yellow energy.
+    const l = peaks.sub[i] * level("sub") + peaks.bass[i] * level("bass") + peaks.lowMid[i] * level("lowMid");
+    const m = peaks.mid[i] * level("mid");
+    const h = (peaks.presence[i] * level("presence") + peaks.high[i] * level("high")) * 1.6;
     low[i] = l;
     mid[i] = m;
     high[i] = h;
@@ -215,14 +216,14 @@ export function waveStyle(): WaveStyle | null {
 }
 export const isZigzag = () => ((globalThis as { __djWaveColor?: string }).__djWaveColor ?? "rgb3") === "zigzag";
 
-export function stemsKey(stems: Record<string, { on: boolean }>) {
-  return ["bass", "drums", "vocals", "other"].map((k) => (stems[k]?.on ? 1 : 0)).join("");
+export function stemsKey(stems: Record<string, { on: boolean }>, levels?: Record<string, number>) {
+  return ["bass", "drums", "vocals", "other"].map((k) => stems[k]?.on ? (levels?.[k] ?? 1).toFixed(2) : "0").join(":");
 }
-export function stemsOn(stems: Record<string, { on: boolean }>): StemsOn {
+export function stemsOn(stems: Record<string, { on: boolean }>, levels?: Record<string, number>): StemsOn {
   return {
-    bass: !!stems.bass?.on,
-    drums: !!stems.drums?.on,
-    vocals: !!stems.vocals?.on,
-    other: !!stems.other?.on,
+    bass: stems.bass?.on ? levels?.bass ?? 1 : 0,
+    drums: stems.drums?.on ? levels?.drums ?? 1 : 0,
+    vocals: stems.vocals?.on ? levels?.vocals ?? 1 : 0,
+    other: stems.other?.on ? levels?.other ?? 1 : 0,
   };
 }

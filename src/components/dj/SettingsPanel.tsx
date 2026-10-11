@@ -10,6 +10,7 @@ import { useTheme, THEMES } from "@/hooks/useTheme";
 import { connectMidi, subscribeMidi, MidiInfo } from "@/lib/dj/midi";
 import { Portal } from "./Portal";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { AccountPanel } from "./AccountPanel";
 import { isPro, whatsappPayUrl, useLicense } from "@/lib/dj/license";
 import settingsArtwork from "@/assets/djogwheels-splash-clean.jpg";
@@ -26,9 +27,11 @@ import {
 export function SettingsPanel({
   mode,
   setMode,
+  onAutomix,
 }: {
   mode: AppMode;
   setMode: (m: AppMode) => void;
+  onAutomix?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState<"menu" | "account" | "decks" | "appearance" | "playback">("menu");
@@ -115,8 +118,8 @@ export function SettingsPanel({
           >
             <div className="sticky top-0 z-10 -mx-3 mb-3 flex items-center justify-between border-b border-border bg-background/90 px-3 py-2 backdrop-blur">
               <div className="flex items-center gap-2 min-w-0">{page !== "menu" && <Button variant="ghost" size="icon" aria-label="Back to settings" onClick={() => setPage("menu")}><ArrowLeft /></Button>}<img src={brandLogo} alt="djogwheels PRO" className="w-20 h-9 object-contain" /><h2 className="text-sm font-semibold">Settings</h2></div>
-              <Button variant="outline" size="icon" onClick={() => setOpen(false)} className="size-9 shrink-0" aria-label="Close settings">
-                <X className="w-4 h-4" />
+              <Button variant="ghost" onClick={() => setOpen(false)} className="shrink-0 text-primary" aria-label="Close settings">
+                Done
               </Button>
             </div>
 
@@ -129,6 +132,7 @@ export function SettingsPanel({
             {page === "menu" && <div className="-mx-3">
               <Button variant="ghost" onClick={() => setPage("account")} className="settings-row h-24 w-full justify-start gap-4 rounded-none px-5 text-base"><span className="settings-avatar grid size-16 shrink-0 place-items-center rounded-full"><UserRound className="size-9" /></span>{license.user?.name ?? "Log in"}<ChevronRight className="ml-auto text-muted-foreground" /></Button>
               <div className="mt-10">
+                {onAutomix && <Button variant="ghost" onClick={() => { setOpen(false); onAutomix(); }} className="settings-row h-14 w-full justify-between rounded-none px-5 text-base">Automix<ChevronRight /></Button>}
                 {([ ["playback", "Audio & video"], ["decks", "General · decks & controllers"], ["appearance", "Appearance · waveforms"] ] as const).map(([key, label]) => <Button key={key} variant="ghost" onClick={() => setPage(key)} className="settings-row h-14 w-full justify-between rounded-none px-5 text-base">{label}<ChevronRight /></Button>)}
               </div>
             </div>}
@@ -251,9 +255,9 @@ export function SettingsPanel({
             </Section>
 
             <Section title="Scratch & crossfader">
-              <label className="mb-3 flex items-center justify-between text-xs text-muted-foreground">Crossfader cut (spring-back)<input type="checkbox" checked={s.xfCut} onChange={e => setS({ xfCut: e.target.checked })} /></label>
-              <label className="mb-3 flex items-center justify-between text-xs text-muted-foreground">Reverse crossfader (hamster)<input type="checkbox" checked={s.xfReverse} onChange={e => setS({ xfReverse: e.target.checked })} /></label>
-              <label className="mb-3 flex items-center justify-between text-xs text-muted-foreground">Vinyl mode<input type="checkbox" checked={s.scratch.vinylMode} onChange={e => setS({ scratch: { ...s.scratch, vinylMode: e.target.checked } })} /></label>
+              <label className="mb-3 flex items-center justify-between text-xs text-muted-foreground">Crossfader cut (spring-back)<Switch checked={s.xfCut} onCheckedChange={checked => setS({ xfCut: checked })} /></label>
+              <label className="mb-3 flex items-center justify-between text-xs text-muted-foreground">Reverse crossfader (hamster)<Switch checked={s.xfReverse} onCheckedChange={checked => setS({ xfReverse: checked })} /></label>
+              <label className="mb-3 flex items-center justify-between text-xs text-muted-foreground">Vinyl mode<Switch checked={s.scratch.vinylMode} onCheckedChange={checked => setS({ scratch: { ...s.scratch, vinylMode: checked } })} /></label>
               <label className="mb-3 block text-[10px] uppercase tracking-widest text-muted-foreground">Crossfader curve
                 <select value={s.xfCurve} onChange={e => setS({ xfCurve: e.target.value as typeof s.xfCurve })} className="mt-1 w-full rounded-sm border border-border bg-secondary px-2 py-2 text-xs text-foreground">
                   <option value="smooth">Smooth</option><option value="linear">Linear</option><option value="cut">Cut</option><option value="scratch">Scratch</option>
@@ -277,8 +281,8 @@ export function SettingsPanel({
             </Section>
 
             <Section title="Waveform">
-              <label className="mb-3 flex items-center justify-between text-xs text-muted-foreground">High contrast<input type="checkbox" checked={s.waveHighContrast} onChange={e => setS({ waveHighContrast: e.target.checked })} /></label>
-              <label className="mb-3 flex items-center justify-between text-xs text-muted-foreground">Waveform scratch<input type="checkbox" checked={s.waveScratch} onChange={e => setS({ waveScratch: e.target.checked })} /></label>
+              <label className="mb-3 flex items-center justify-between text-xs text-muted-foreground">High contrast<Switch checked={s.waveHighContrast} onCheckedChange={checked => setS({ waveHighContrast: checked })} /></label>
+              <label className="mb-3 flex items-center justify-between text-xs text-muted-foreground">Waveform scratch<Switch checked={s.waveScratch} onCheckedChange={checked => setS({ waveScratch: checked })} /></label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Direction
                   <select value={s.waveOrientation} onChange={(e) => setS({ waveOrientation: e.target.value as typeof s.waveOrientation })} className="mt-1 w-full rounded-sm border border-border bg-secondary px-2 py-2 text-xs text-foreground">
@@ -316,7 +320,7 @@ export function SettingsPanel({
                 <select aria-label="Recording format" disabled={recording} value={s.recording.format ?? "webm"} onChange={e => setS({ recording: { ...s.recording, format: e.target.value as "webm" | "wav" } })} className="mt-1 h-10 w-full rounded-md border border-border bg-secondary px-2 text-foreground"><option value="webm">WebM (small)</option><option value="wav">WAV (lossless)</option></select>
               </label>}
               <p className="mt-2 text-[11px] text-muted-foreground">Recording works fully offline and saves to your device.</p>
-              <label className="my-3 flex items-center justify-between text-xs text-muted-foreground">Low storage<input type="checkbox" disabled={recording} checked={s.recording.lowStorage} onChange={e => setS({ recording: { ...s.recording, lowStorage: e.target.checked } })} /></label>
+              <label className="my-3 flex items-center justify-between text-xs text-muted-foreground">Low storage<Switch disabled={recording} checked={s.recording.lowStorage} onCheckedChange={checked => setS({ recording: { ...s.recording, lowStorage: checked } })} /></label>
               <Button variant={recording ? "destructive" : "outline"} className="w-full" onClick={isPro() ? toggleRecord : () => setPage("account")}><Circle />{recording ? "Stop & save recording" : isPro() ? "Start recording" : "Recording · unlock PRO"}</Button>
             </Section>
             <Section title="Headphones (pre-cue)">
@@ -331,15 +335,13 @@ export function SettingsPanel({
             <Section title="Video">
               <label className="flex items-center justify-between text-xs text-muted-foreground">
                 Floating video screens
-                <input
-                  type="checkbox"
+                <Switch
                   checked={s.floatingVideo}
-                  onChange={(e) => setS({ floatingVideo: e.target.checked })}
-                />
+                  onCheckedChange={checked => setS({ floatingVideo: checked })} />
               </label>
               <label className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                 Follow crossfader
-                <input type="checkbox" checked={s.videoFollowCrossfader} onChange={(e) => setS({ videoFollowCrossfader: e.target.checked })} />
+                <Switch checked={s.videoFollowCrossfader} onCheckedChange={checked => setS({ videoFollowCrossfader: checked })} />
               </label>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <label className="text-[10px] uppercase tracking-widest text-muted-foreground">Transition
@@ -355,11 +357,9 @@ export function SettingsPanel({
               </div>
               <label className="flex items-center justify-between text-xs text-muted-foreground mt-2">
                 Use logo watermark
-                <input
-                  type="checkbox"
+                <Switch
                   checked={s.watermarkLogo}
-                  onChange={(e) => setS({ watermarkLogo: e.target.checked })}
-                />
+                  onCheckedChange={checked => setS({ watermarkLogo: checked })} />
               </label>
             </Section>
 
@@ -368,11 +368,9 @@ export function SettingsPanel({
               {isPro() ? (<>
               <label className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                 Show watermark
-                <input
-                  type="checkbox"
+                <Switch
                   checked={s.showWatermark}
-                  onChange={(e) => setS({ showWatermark: e.target.checked })}
-                />
+                  onCheckedChange={checked => setS({ showWatermark: checked })} />
               </label>
               <input
                 type="text"
@@ -389,19 +387,15 @@ export function SettingsPanel({
             <Section title="Scratch">
               <label className="flex items-center justify-between text-xs text-muted-foreground">
                 Key lock (preserve pitch)
-                <input
-                  type="checkbox"
+                <Switch
                   checked={s.keyLock}
-                  onChange={(e) => setS({ keyLock: e.target.checked })}
-                />
+                  onCheckedChange={checked => setS({ keyLock: checked })} />
               </label>
               <label className="flex items-center justify-between text-xs text-muted-foreground mt-2">
                 Brake when pausing (turntable stop)
-                <input
-                  type="checkbox"
+                <Switch
                   checked={s.brakeOnPause}
-                  onChange={(e) => setS({ brakeOnPause: e.target.checked })}
-                />
+                  onCheckedChange={checked => setS({ brakeOnPause: checked })} />
               </label>
             </Section>
 

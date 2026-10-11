@@ -4,10 +4,12 @@ import { Deck, Mixer } from '@/lib/dj/engine';
 import { deviceLibrary, type DeviceTrack } from '@/lib/dj/deviceLibrary';
 import { Portal } from './Portal';
 import { Button } from '@/components/ui/button';
+import { analyzeTrackBeats } from '@/lib/dj/beatAnalysis';
+import { getMixer } from '@/lib/dj/useMixer';
 
 const allDecks = ['A', 'B', 'C', 'D'] as const;
 const empty = { tracks: [], queue: [], playlists: {} };
-export function TrackLibraryOverlay({ open, onClose, deck, mixer }: { open: boolean; onClose: () => void; deck?: Deck; mixer?: Mixer }) {
+export function TrackLibraryOverlay({ open, onClose, deck, mixer, queueOnly = false }: { open: boolean; onClose: () => void; deck?: Deck; mixer?: Mixer; queueOnly?: boolean }) {
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'Songs' | 'Videos' | 'Files' | 'Queue' | 'Playlists'>('Songs');
   const [sort, setSort] = useState('title-asc');
@@ -28,6 +30,7 @@ export function TrackLibraryOverlay({ open, onClose, deck, mixer }: { open: bool
   if (sort !== 'original') visible.sort((a, b) => sort === 'title-desc' ? b.title.localeCompare(a.title, undefined, { numeric: true }) : sort === 'type' ? (a.kind ?? 'audio').localeCompare(b.kind ?? 'audio') || a.title.localeCompare(b.title) : a.title.localeCompare(b.title, undefined, { numeric: true }));
   const acquire = async (track: DeviceTrack) => track.file ?? track.handle?.getFile();
   const load = async (track: DeviceTrack, id?: typeof allDecks[number]) => {
+    if (queueOnly) { deviceLibrary.addQueue(track); setMenu(null); return; }
     const destination = id && mixer ? mixer.decks[id] : deck;
     if (!destination) return;
     setLoading(`${track.filename}-${id ?? destination.id}`); setError('');
@@ -39,6 +42,22 @@ export function TrackLibraryOverlay({ open, onClose, deck, mixer }: { open: bool
       onClose();
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not load this track.'); }
     finally { setLoading(''); }
+  };
+  const analyze = async () => {
+    const audio = mixer?.ctx ?? getMixer()?.ctx;
+    if (!audio || busy) return;
+    setMenu(null); setBusy(true); setError('');
+    let failed = 0;
+    for (let i = 0; i < visible.length; i++) {
+      const track = visible[i]; setError(`Analyzing ${i + 1}/${visible.length} · ${track.title}`);
+      try {
+        const file = await acquire(track);
+        const data = file ? await file.arrayBuffer() : await (await fetch(track.url)).arrayBuffer();
+        const grid = await analyzeTrackBeats(await audio.decodeAudioData(data));
+        if (grid) deviceLibrary.setAnalysis(track, grid.bpm, grid.firstBeat); else failed++;
+      } catch { failed++; }
+    }
+    setBusy(false); setError(failed ? `Analysis finished · ${failed} songs unavailable.` : 'Analysis complete.');
   };
   const scan = async () => {
     setBusy(true); setError('');
@@ -60,20 +79,20 @@ export function TrackLibraryOverlay({ open, onClose, deck, mixer }: { open: bool
     audio.onended = () => { if (file) URL.revokeObjectURL(url); };
     await audio.play(); setPreview(audio);
   };
-  return <Portal><div className="fixed inset-0 z-[300] bg-background text-foreground" style={{ height: '100dvh' }}>
+  return <Portal><div className="fixed inset-0 z-[300] library-reference bg-background text-foreground" style={{ height: '100dvh' }}>
     <section className="flex h-full flex-col overflow-hidden bg-background">
       <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-secondary px-4 py-3">
-        <button className="text-primary" onClick={onClose} aria-label="Close library"><X className="size-6" /></button>
-        <h2 className="truncate text-center text-lg font-semibold">{tab === 'Songs' ? 'Music' : tab}</h2>
+        <Button variant="ghost" className="px-0 text-primary" onClick={onClose} aria-label="Close library">Cancel</Button>
+        <h2 className="flex items-center justify-center gap-2 truncate text-center text-lg font-semibold"><Music2 className="size-6 text-primary" />{tab === 'Songs' ? 'Music' : tab}</h2>
         <button className="text-primary" onClick={scan} aria-label="Browse device music and videos" title="Browse device music and videos"><FolderOpen className="size-6" /></button>
       </header>
       <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2 text-lg">{visible.length} {tab} <ChevronDown className="size-4 text-muted-foreground" /></div>
-        <div className="relative shrink-0"><button className="text-primary" onClick={() => setMenu(menu === 'all' ? null : 'all')} aria-label="All tracks menu"><MoreHorizontal className="size-6" /></button>
-          {menu === 'all' && <div className="absolute right-0 top-8 z-30 w-56 rounded-md bg-popover p-1 shadow-lg border border-border">
+        <Button variant="ghost" className="min-w-0 px-0 text-xl font-normal" aria-label="All tracks menu" onClick={() => setMenu(menu === 'all' ? null : 'all')}>{visible.length} {tab} <ChevronDown className="size-4 text-muted-foreground" /></Button>
+        <div className="relative shrink-0"><button className="text-primary" onClick={() => setMenu(menu === 'all' ? null : 'all')} aria-label="More library options"><MoreHorizontal className="size-6" /></button>
+          {menu === 'all' && <div className="absolute right-0 top-8 z-30 w-72 max-w-[85vw] reference-menu rounded-lg bg-popover p-1 shadow-lg border border-border">
             <button className="block w-full px-3 py-3 text-left" onClick={() => { deviceLibrary.addAllQueue(visible); setMenu(null); }}>Add All to Queue</button>
             <button className="block w-full px-3 py-3 text-left border-t border-border" onClick={() => addPlaylist(visible)}>Add All to Playlist…</button>
-            <button className="block w-full px-3 py-3 text-left border-t border-border" onClick={() => { setMenu(null); setError('Track analysis runs when a song is loaded to a deck.'); }}>Analyze Songs</button>
+            <button className="block w-full px-3 py-3 text-left border-t border-border" disabled={busy} onClick={() => void analyze()}>Analyze Songs</button>
           </div>}
         </div>
       </div>
@@ -85,7 +104,7 @@ export function TrackLibraryOverlay({ open, onClose, deck, mixer }: { open: bool
       <div className="min-h-0 flex-1 overflow-y-auto py-3">
         {visible.slice(0, limit).map((track, index) => <div key={`${track.filename}-${index}`} className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 px-4 py-2">
           <div className="grid size-14 place-items-center overflow-hidden rounded-md bg-secondary text-muted-foreground/40">{track.artworkUrl ? <img src={track.artworkUrl} alt="" loading="lazy" decoding="async" onError={e => { e.currentTarget.style.display = 'none'; }} className="size-full object-cover" /> : track.kind === 'video' ? <Film className="size-5" /> : null}</div>
-          <button className="min-w-0 text-left" onClick={() => load(track, mixer ? mixer.activeDecks().left.id : undefined)}><span className="block truncate text-sm font-semibold">{track.title}</span><span className="block truncate text-xs text-muted-foreground">{track.file || track.handle || track.native ? 'This device' : 'MixrdjsPro library'}</span></button>
+          <button className="min-w-0 text-left" onClick={() => load(track, mixer ? mixer.activeDecks().left.id : undefined)}><span className="block truncate text-sm font-semibold">{track.title}</span><span className="block truncate text-xs text-muted-foreground">{track.bpm ? `${track.bpm.toFixed(1)} BPM · ` : ''}{track.file || track.handle || track.native ? 'This device' : 'MixrdjsPro library'}</span></button>
           <div className="relative"><button className="grid size-9 place-items-center rounded-full bg-secondary" aria-label={`Options for ${track.title}`} onClick={() => setMenu(menu === track.filename ? null : track.filename)}><MoreHorizontal className="size-5" /></button>
             {menu === track.filename && <div className="absolute right-0 top-9 z-20 w-52 rounded-md border border-border bg-popover p-1 shadow-lg text-sm">
               <div className="px-3 py-2 text-xs text-muted-foreground">Load to deck</div>

@@ -156,6 +156,7 @@ export class Deck {
   buffer: AudioBuffer | null = null;
   reverseBuffer: AudioBuffer | null = null;
   source: AudioBufferSourceNode | null = null;
+  private sourceGain: GainNode | null = null;
   gain: GainNode;
   eqLow: BiquadFilterNode;
   eqMid: BiquadFilterNode;
@@ -601,7 +602,11 @@ export class Deck {
     src.buffer = this.buffer;
     src.playbackRate.value = this.rate;
     this.updateKeyRate(this.rate);
-    src.connect(this.keyLock && this.keyProcessor ? this.keyProcessor : this.gain);
+    const fade = this.ctx.createGain();
+    fade.gain.setValueAtTime(0, this.ctx.currentTime);
+    fade.gain.linearRampToValueAtTime(1, this.ctx.currentTime + 0.003);
+    src.connect(fade).connect(this.keyLock && this.keyProcessor ? this.keyProcessor : this.gain);
+    this.sourceGain = fade;
     src.start(0, Math.max(0, this.pausedAt));
     src.onended = () => {
       // Auto-rewind: when the source finishes (track end), stop & reset to 0.
@@ -1024,9 +1029,15 @@ export class Deck {
     this.scratchRate = 0;
     if (this.playing) {
       this.pausedAt = this.scratchPos;
-      try { this.source?.stop(); } catch {}
-      try { this.source?.disconnect(); } catch {}
+      const oldSource = this.source, oldGain = this.sourceGain;
+      const now = this.ctx.currentTime;
+      oldGain?.gain.cancelScheduledValues(now);
+      oldGain?.gain.setValueAtTime(oldGain.gain.value, now);
+      oldGain?.gain.linearRampToValueAtTime(0, now + 0.003);
+      try { oldSource?.stop(now + 0.003); } catch {}
+      window.setTimeout(() => { oldSource?.disconnect(); oldGain?.disconnect(); }, 15);
       this.source = null;
+      this.sourceGain = null;
       this.playing = false;
     }
     if (isNative()) native.play(this.id, this.scratchPos, 0);
@@ -1034,7 +1045,7 @@ export class Deck {
     this.emit();
   }
 
-  scratch(rate: number) {
+  scratch(rate: number, when?: number) {
     if (!this.buffer) return;
     if (!this.scratching) this.scratchStart();
     // Signed rate straight to the worklet: it smooths per-sample and reads the
@@ -1055,7 +1066,7 @@ export class Deck {
         }).finally(() => { this.nativePositionBusy = false; });
       }
     }
-    else this.scratchPlayer?.setRate(r);
+    else this.scratchPlayer?.setRate(r, when);
     if (!isNative() && !this.scratchPlayer?.available) {
       // No worklet available: silent scrub so the UI still tracks the finger.
       this.scratchPos = Math.max(0, Math.min(this.duration, this.scratchPos + r * 0.016));
@@ -1162,7 +1173,6 @@ export class Deck {
   endScratch() {
     if (!this.scratching) return;
     this.releaseToken++;
-    this.scratchPlayer?.setRate(0);
     this.scratchPlayer?.stop();
     if (isNative()) native.pause(this.id);
     this.scratchRate = 0;
@@ -1857,6 +1867,22 @@ const peakCache = new WeakMap<AudioBuffer, Map<number, BandedPeaks>>();
 export function computeBandedPeaks(buffer: AudioBuffer, bins: number): BandedPeaks {
   const cached = peakCache.get(buffer)?.get(bins);
   if (cached) return cached;
+  if (buffer.numberOfChannels === 8) {
+    const peaks: BandedPeaks = { overall: new Float32Array(bins), sub: new Float32Array(bins), bass: new Float32Array(bins), lowMid: new Float32Array(bins), mid: new Float32Array(bins), presence: new Float32Array(bins), high: new Float32Array(bins) };
+    // Real separated stereo pairs: drums, bass, harmonic, vocals.
+    STEM_ORDER.forEach((stem, pair) => {
+      const left = buffer.getChannelData(pair * 2), right = buffer.getChannelData(pair * 2 + 1);
+      const band = stem === "drums" ? peaks.lowMid : stem === "bass" ? peaks.bass : stem === "vocals" ? peaks.mid : peaks.high;
+      for (let bin = 0; bin < bins; bin++) {
+        const start = Math.floor(bin * buffer.length / bins), end = Math.floor((bin + 1) * buffer.length / bins);
+        let energy = 0;
+        for (let i = start; i < end; i++) energy = Math.max(energy, Math.abs(left[i]), Math.abs(right[i]));
+        band[bin] = energy; peaks.overall[bin] += energy;
+      }
+    });
+    const cache = peakCache.get(buffer) ?? new Map<number, BandedPeaks>();
+    cache.set(bins, peaks); peakCache.set(buffer, cache); return peaks;
+  }
   const data = buffer.getChannelData(0);
   const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : data;
   const sr = buffer.sampleRate;

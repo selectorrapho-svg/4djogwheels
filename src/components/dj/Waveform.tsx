@@ -11,9 +11,9 @@ function makeStrip(axis: "x" | "y") {
   const ref = { strip: null as RgbStrip | null, key: "", peaks: null as BandedPeaks | null };
   return (peaks: BandedPeaks, deck: Deck) => {
     const style = waveStyle() ?? "rgb";
-    const k = style + ":" + stemsKey(deck.stems as never) + ":" + peaks.overall.length;
+    const k = style + ":" + stemsKey(deck.stems, deck.stemLevels) + ":" + peaks.overall.length;
     if (ref.key !== k || ref.peaks !== peaks || !ref.strip) {
-      ref.strip = buildRgbStrip(peaks, stemsOn(deck.stems as never), axis, style);
+      ref.strip = buildRgbStrip(peaks, stemsOn(deck.stems, deck.stemLevels), axis, style);
       ref.key = k;
       ref.peaks = peaks;
     }
@@ -86,12 +86,12 @@ export function Waveform({ deck, side }: Props) {
         const style = waveStyle();
         // Zigzag style: crisp Serato-style spikes once zoomed in far enough.
         if (style && isZigzag() && pxPerSec > 260) {
-          drawZigzag(ctx, peaks, stemsOn(deck.stems as never), dur, t, pxPerSec, H, centerY, 0, W, "y");
+          drawZigzag(ctx, peaks, stemsOn(deck.stems, deck.stemLevels), dur, t, pxPerSec, H, centerY, 0, W, "y");
         } else if (style) {
           const strip = getStrip(peaks, deck);
           if (strip) {
           for (let lane = 0; lane < settings.waveTracks; lane++) {
-            const laneStems = settings.waveTracks === 1 ? stemsOn(deck.stems) : settings.waveTracks === 2 ? { bass: lane === 0 && deck.stems.bass.on, drums: lane === 0 && deck.stems.drums.on, vocals: lane === 1 && deck.stems.vocals.on, other: lane === 1 && deck.stems.other.on } : { bass: lane === 0 && deck.stems.bass.on, drums: lane === 0 && deck.stems.drums.on, vocals: lane === 1 && deck.stems.vocals.on, other: lane === 2 && deck.stems.other.on };
+            const laneStems = settings.waveTracks === 1 ? stemsOn(deck.stems, deck.stemLevels) : settings.waveTracks === 2 ? { bass: lane === 0 && deck.stems.bass.on ? deck.stemLevels.bass : 0, drums: lane === 0 && deck.stems.drums.on ? deck.stemLevels.drums : 0, vocals: lane === 1 && deck.stems.vocals.on ? deck.stemLevels.vocals : 0, other: lane === 1 && deck.stems.other.on ? deck.stemLevels.other : 0 } : { bass: lane === 0 && deck.stems.bass.on ? deck.stemLevels.bass : 0, drums: lane === 0 && deck.stems.drums.on ? deck.stemLevels.drums : 0, vocals: lane === 1 && deck.stems.vocals.on ? deck.stemLevels.vocals : 0, other: lane === 2 && deck.stems.other.on ? deck.stemLevels.other : 0 };
             const laneStrip = settings.waveTracks === 1 ? strip : getLaneStrip(lane, peaks, laneStems);
             if (laneStrip) drawRgbStrip(ctx, laneStrip, dur, t, pxPerSec, H, centerY, lane * W / settings.waveTracks, W / settings.waveTracks);
           }
@@ -102,12 +102,12 @@ export function Waveform({ deck, side }: Props) {
           ctx.beginPath();
           for (let y = 0; y <= H; y += step) {
             const timeAt = t + (y - centerY) / pxPerSec;
-            const v = smoothAt(arr, timeAt / secsPerBin) * halfW * scale;
+            const v = smoothAt(arr, timeAt / secsPerBin) * deck.stemLevels[BAND_STEM[key as string]] * halfW * scale;
             ctx.lineTo(cx - v, y);
           }
           for (let y = H; y >= 0; y -= step) {
             const timeAt = t + (y - centerY) / pxPerSec;
-            const v = smoothAt(arr, timeAt / secsPerBin) * halfW * scale;
+            const v = smoothAt(arr, timeAt / secsPerBin) * deck.stemLevels[BAND_STEM[key as string]] * halfW * scale;
             ctx.lineTo(cx + v, y);
           }
           ctx.closePath();
@@ -265,14 +265,15 @@ export function TrackOverview({ deck, accent }: { deck: Deck; accent: string }) 
       const n = peaks.overall.length;
       ctx.globalCompositeOperation = "source-over";
       for (const [key, col, scale] of stemBands()) {
+        if (!deck.stems[BAND_STEM[key as string]].on) continue;
         const arr = peaks[key] as Float32Array;
         ctx.beginPath();
         for (let x = 0; x <= w; x++) {
-          const v = smoothAt(arr, (x / w) * (n - 1)) * cy * scale;
+          const v = smoothAt(arr, (x / w) * (n - 1)) * deck.stemLevels[BAND_STEM[key as string]] * cy * scale;
           ctx.lineTo(x, cy - v);
         }
         for (let x = w; x >= 0; x--) {
-          const v = smoothAt(arr, (x / w) * (n - 1)) * cy * scale;
+          const v = smoothAt(arr, (x / w) * (n - 1)) * deck.stemLevels[BAND_STEM[key as string]] * cy * scale;
           ctx.lineTo(x, cy + v);
         }
         ctx.closePath();
@@ -302,5 +303,5 @@ export function TrackOverview({ deck, accent }: { deck: Deck; accent: string }) 
     return () => cancelAnimationFrame(rafRef.current);
   }, [deck, accent]);
 
-  return <canvas ref={canvasRef} className="w-full h-full block" />;
+  return <canvas ref={canvasRef} role="slider" aria-label={`Track position deck ${deck.id}`} aria-valuemin={0} aria-valuemax={deck.duration} aria-valuenow={deck.currentTime} className="w-full h-full block touch-none" onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); const box = e.currentTarget.getBoundingClientRect(); deck.seek((e.clientX - box.left) / box.width * deck.duration); }} onPointerMove={e => { if (!e.currentTarget.hasPointerCapture(e.pointerId)) return; const box = e.currentTarget.getBoundingClientRect(); deck.seek((e.clientX - box.left) / box.width * deck.duration); }} />;
 }
