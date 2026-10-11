@@ -26,7 +26,7 @@ export function saveCustomDna(list: DnaPattern[]) { localStorage.setItem(KEY, JS
 const running = new WeakMap<Deck, () => void>();
 
 /** Perform a pattern on the deck, `bars` beats long, synced to the deck tempo. Returns a stop function. */
-export function playDna(deck: Deck, pattern: DnaPattern, beats = 1, repeat = false): () => void {
+export function playDna(deck: Deck, pattern: DnaPattern, beats = 1, repeat = false, anchor = deck.currentTime): () => void {
   running.get(deck)?.();
   if (!deck.buffer || pattern.steps.length === 0) return () => {};
   const beatSec = 60 / ((deck.bpm || 120) * (deck.rate || 1));
@@ -36,24 +36,36 @@ export function playDna(deck: Deck, pattern: DnaPattern, beats = 1, repeat = fal
   const ctx = deck.gain.context;
   let timer = 0;
   let stopped = false;
-  let i = 0;
+  let nextTime = ctx.currentTime + 0.02;
+  let nextPosition = anchor;
+  let endTime = nextTime;
+  const originalGain = g.value;
+  deck.seek(anchor);
   deck.scratchStart();
   const step = () => {
     if (stopped) return;
-    if (i >= pattern.steps.length) {
-      if (!repeat) { stop(); return; }
-      i = 0;
+    if (ctx.currentTime >= endTime && endTime > nextTime && !repeat) { stop(); return; }
+    if (ctx.currentTime + 0.05 >= nextTime && (repeat || endTime === nextTime)) {
+      // Position-locked pattern; each repetition returns to the same phrase.
+      let position = anchor;
+      for (const st of pattern.steps) {
+        const duration = st.beats * scale * beatSec;
+        deck.scratch(st.speed, nextTime);
+        g.setTargetAtTime(st.open ? originalGain : 0, nextTime, 0.001);
+        position += st.speed * duration;
+        nextTime += duration;
+      }
+      nextPosition = position;
+      endTime = nextTime;
     }
-    const st = pattern.steps[i++];
-    deck.scratch(st.speed);
-    g.setTargetAtTime(st.open ? 1 : 0, ctx.currentTime, 0.003);
-    timer = window.setTimeout(step, st.beats * scale * beatSec * 1000);
+    timer = window.setTimeout(step, 10);
   };
   const stop = () => {
     if (stopped) return;
     stopped = true;
     clearTimeout(timer);
-    g.setTargetAtTime(1, ctx.currentTime, 0.004);
+    g.cancelScheduledValues(ctx.currentTime);
+    g.setTargetAtTime(originalGain, ctx.currentTime, 0.001);
     deck.releaseScratch();
     running.delete(deck);
   };
