@@ -37,26 +37,24 @@ export function playDna(deck: Deck, pattern: DnaPattern, beats = 1, repeat = fal
   let timer = 0;
   let stopped = false;
   let nextTime = ctx.currentTime + 0.02;
-  let nextPosition = anchor;
   let endTime = nextTime;
+  let scheduled = false;
   const originalGain = g.value;
   deck.seek(anchor);
   deck.scratchStart();
   const step = () => {
     if (stopped) return;
-    if (ctx.currentTime >= endTime && endTime > nextTime && !repeat) { stop(); return; }
-    if (ctx.currentTime + 0.05 >= nextTime && (repeat || endTime === nextTime)) {
+    if (scheduled && ctx.currentTime >= endTime && !repeat) { stop(); return; }
+    if (ctx.currentTime + 0.05 >= nextTime && (repeat || !scheduled)) {
       // Position-locked pattern; each repetition returns to the same phrase.
-      let position = anchor;
       for (const st of pattern.steps) {
         const duration = st.beats * scale * beatSec;
         deck.scratch(st.speed, nextTime);
         g.setTargetAtTime(st.open ? originalGain : 0, nextTime, 0.001);
-        position += st.speed * duration;
         nextTime += duration;
       }
-      nextPosition = position;
       endTime = nextTime;
+      scheduled = true;
     }
     timer = window.setTimeout(step, 10);
   };
