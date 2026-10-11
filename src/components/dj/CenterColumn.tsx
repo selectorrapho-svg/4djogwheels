@@ -118,7 +118,7 @@ function ViewButton({ active, onClick, label, children }: { active: boolean; onC
 
 // Compact dual-channel mixer. The deck volume controls remain on the decks;
 // this overview is reserved for shaping the sound.
-function MixerView({ deckA, deckB }: { deckA: Deck; deckB: Deck }) {
+export function MixerView({ deckA, deckB }: { deckA: Deck; deckB: Deck }) {
   const [knobs, setKnobs] = useState<Record<"A" | "B", number[]>>({ A: [0, 0, 0], B: [0, 0, 0] });
   const [filter, setFilter] = useState<Record<"A" | "B", number>>({ A: 0, B: 0 });
   const [eqOn, setEqOn] = useState(true);
@@ -154,11 +154,11 @@ function MixerView({ deckA, deckB }: { deckA: Deck; deckB: Deck }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-1 min-h-0 items-center justify-center gap-1 px-1">
-        <ChannelStrip id="A" accent="#ff8a3b" filter={filter.A} eq={knobs.A}
+        <ChannelStrip id="A" accent="var(--foreground)" filter={filter.A} eq={knobs.A}
           onFilter={(v) => { setFilter((f) => ({ ...f, A: v })); deckA.setFilter(v); }}
           onBand={(band, v) => setBand("A", deckA, band, v)} />
         <div className="flex h-full max-h-56 items-center gap-1 py-2"><div className="flex flex-col items-center gap-2"><span className="text-[9px] text-muted-foreground">A</span><Fader height={110} width={26} value={deckA.volume} onChange={v => deckA.setVolume(v)} knobColor="var(--foreground)" /></div><LevelMeter deck={deckA} label="A" /><LevelMeter deck={deckB} label="B" /><div className="flex flex-col items-center gap-2"><span className="text-[9px] text-muted-foreground">B</span><Fader height={110} width={26} value={deckB.volume} onChange={v => deckB.setVolume(v)} knobColor="var(--foreground)" /></div></div>
-        <ChannelStrip id="B" accent="#3bd2ff" filter={filter.B} eq={knobs.B}
+        <ChannelStrip id="B" accent="var(--foreground)" filter={filter.B} eq={knobs.B}
           onFilter={(v) => { setFilter((f) => ({ ...f, B: v })); deckB.setFilter(v); }}
           onBand={(band, v) => setBand("B", deckB, band, v)} />
       </div>
@@ -190,9 +190,9 @@ function ChannelStrip({
     <div className="flex min-w-0 flex-1 max-w-[110px] flex-col items-center justify-between gap-1 py-1 h-full max-h-64">
       <div className="text-[9px] font-bold uppercase text-muted-foreground">CH <span style={{ color: accent }}>{id}</span></div>
       <Knob value={filter} min={-1} max={1} size={30} label="FILTER" color={accent} showTicks={false} onChange={onFilter} />
-      <Knob value={eq[0]} min={-1} max={1} size={28} label="HI" color={accent} showTicks={false} onChange={(v) => onBand("high", v)} />
-      <Knob value={eq[1]} min={-1} max={1} size={28} label="MID" color={accent} showTicks={false} onChange={(v) => onBand("mid", v)} />
-      <Knob value={eq[2]} min={-1} max={1} size={28} label="LOW" color={accent} showTicks={false} onChange={(v) => onBand("low", v)} />
+      <Knob value={eq[0]} min={-24} max={24} size={28} label="HI" color={accent} showTicks={false} onChange={(v) => onBand("high", v)} />
+      <Knob value={eq[1]} min={-24} max={24} size={28} label="MID" color={accent} showTicks={false} onChange={(v) => onBand("mid", v)} />
+      <Knob value={eq[2]} min={-24} max={24} size={28} label="LOW" color={accent} showTicks={false} onChange={(v) => onBand("low", v)} />
     </div>
   );
 }

@@ -22,6 +22,8 @@ import brandLogo from "@/assets/djogwheels-user-logo-cropped.png";
 import { useState, useRef, useEffect } from "react";
 import { PitchMenu } from "./PitchMenu";
 import { PreCueButton } from "./PreCueButton";
+import { ScratchDnaPanel } from "./ScratchDnaPanel";
+import { MixerView } from "./CenterColumn";
 import { LoopControls } from "./LoopControls";
 import { StemsPanel } from "./StemsPanel";
 import { WaveformOptions } from "./WaveformOptions";
@@ -77,8 +79,8 @@ function DeckEqStrip({ deck, accent }: { deck: Deck; accent: string }) {
 }
 
 type Sheet = null | "tools";
-type MainView = "decks" | "wave" | "pads";
-type ToolTab = "loop" | "cues" | "fx" | "samples" | "eq";
+type MainView = "decks" | "wave" | "pads" | "mixer";
+type ToolTab = "loop" | "cues" | "fx" | "samples" | "eq" | "dna";
 
 function BottomSheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   if (!open) return null;
@@ -101,10 +103,12 @@ export function PortraitLayout({
   mixer,
   mode,
   setMode,
+  onAutomix,
 }: {
   mixer: Mixer;
   mode: AppMode;
   setMode: (m: AppMode) => void;
+  onAutomix?: () => void;
 }) {
   const pair = useActivePair(mixer);
   const { left: deckLeft, right: deckRight } = mixer.activeDecks();
@@ -134,15 +138,15 @@ export function PortraitLayout({
     <div className="fixed inset-0 bg-background text-foreground flex flex-col overflow-hidden select-none">
       <div data-dj-topbar className="flex items-center justify-between h-11 shrink-0 gap-2 border-b border-border px-3">
         <img src={brandLogo} alt="djogwheels PRO" className="h-9 w-28 object-contain" />
-        <div className="flex items-center gap-2"><WaveformOptions topVisible={topVisible} onTopVisible={setTopVisible} /><Button variant="ghost" size="icon" onClick={() => setLibraryDeck(deckLeft)} title="Library" aria-label="Open library"><Library /></Button><SettingsPanel mode={mode} setMode={setMode} /><ThemeToggle /></div>
+        <div className="flex items-center gap-2"><WaveformOptions topVisible={topVisible} onTopVisible={setTopVisible} /><Button variant="ghost" size="icon" onClick={() => setLibraryDeck(deckLeft)} title="Library" aria-label="Open library"><Library /></Button><SettingsPanel mode={mode} setMode={setMode} onAutomix={onAutomix} /><ThemeToggle /></div>
       </div>
       {topVisible && <TopWaveforms decks={[deckLeft, deckRight]} />}
       <div className="flex items-center gap-1 px-1 min-h-0 h-[82px] shrink-0 border-b border-border">
         <MiniDeckHeader deck={deckLeft} side="left" onLibrary={() => setLibraryDeck(deckLeft)} />
         <MiniDeckHeader deck={deckRight} side="right" onLibrary={() => setLibraryDeck(deckRight)} />
       </div>
-      <div className="grid grid-cols-3 h-10 shrink-0 border-b border-border bg-secondary">
-        {([ ["decks", <Disc3 className="size-5" />, "Jog wheels"], ["wave", <Activity className="size-5" />, "Waveforms"], ["pads", <Grid3x3 className="size-5" />, "Pads"] ] as const).map(([key, icon, label]) => (
+      <div className="grid grid-cols-4 h-10 shrink-0 border-b border-border bg-secondary">
+        {([ ["mixer", <Sliders className="size-5" />, "Mixer overview"], ["decks", <Disc3 className="size-5" />, "Jog wheels"], ["wave", <Activity className="size-5" />, "Waveforms"], ["pads", <Grid3x3 className="size-5" />, "Pads"] ] as const).map(([key, icon, label]) => (
           <button key={key} onClick={() => setMainView(key)} title={label} aria-label={label} aria-pressed={mainView === key} className={`grid place-items-center ${mainView === key ? "text-primary bg-background" : "text-muted-foreground"}`}>{icon}</button>
         ))}
       </div>
@@ -199,9 +203,10 @@ export function PortraitLayout({
         <div className="flex gap-1 mb-3">
           {(["left", "right"] as const).map((side) => <button key={side} onClick={() => setToolDeck(side)} className={`flex-1 py-2 text-xs border border-border rounded-sm ${toolDeck === side ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>Deck {side === "left" ? deckLeft.id : deckRight.id}</button>)}
         </div>
-        <div className="grid grid-cols-5 gap-1 mb-4">
-          {(["fx", "samples", "cues", "loop", "eq"] as const).map((tab) => <button key={tab} onClick={() => setToolTab(tab)} className={`py-2 text-[11px] capitalize rounded-sm ${toolTab === tab ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{tab === "cues" ? "Hot Cues" : tab}</button>)}
+        <div className="grid grid-cols-6 gap-1 mb-4">
+          {(["fx", "samples", "cues", "dna", "loop", "eq"] as const).map((tab) => <button key={tab} onClick={() => setToolTab(tab)} className={`py-2 text-[11px] capitalize rounded-sm ${toolTab === tab ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{tab === "cues" ? "Hot Cues" : tab === "dna" ? "DNA" : tab}</button>)}
         </div>
+        {toolTab === "dna" && <ScratchDnaPanel deck={activeToolDeck} accent="var(--control-blue)" />}
         {toolTab === "loop" && <LoopControls deck={activeToolDeck} />}
         {toolTab === "cues" && <div className="h-[230px]"><CuePointGrid deck={activeToolDeck} /></div>}
         {toolTab === "fx" && <DeckFxPanel key={activeToolDeck.id} deck={activeToolDeck} accent={toolDeck === "left" ? "var(--accent-orange)" : "var(--accent-blue)"} side={toolDeck} compact inline />}

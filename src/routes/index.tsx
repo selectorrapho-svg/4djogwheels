@@ -14,6 +14,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAppMode } from "@/hooks/useAppMode";
 import { Waveform } from "@/components/dj/Waveform";
 import { Crossfader } from "@/components/dj/Crossfader";
+import { AutomixView } from "@/components/dj/AutomixView";
+import { getAutomix } from "@/lib/dj/automix";
 import { FourDeckLayout } from "@/components/dj/FourDeckLayout";
 
 export const Route = createFileRoute("/")({
@@ -41,6 +43,8 @@ function DjApp() {
   useTheme();
   const [mode, setMode] = useAppMode();
   const [splashDone, setSplashDone] = useState(false);
+  const [automixOpen, setAutomixOpen] = useState(false);
+  const changeMode = (next: typeof mode) => { if (mixer) getAutomix(mixer).stop(); setMode(next); };
   const pair = useActivePair(mixer);
   const fourDeck = useSyncExternalStore(
     (l) => (mixer ? mixer.on(l) : () => {}),
@@ -58,15 +62,16 @@ function DjApp() {
 
   return (
     <>
+      {mixer && automixOpen && <AutomixView mixer={mixer} onClose={() => { getAutomix(mixer).stop(); setAutomixOpen(false); }} />}
       {!splashDone && <Splash onDone={() => setSplashDone(true)} />}
       {!mixer || !decks ? (
         <div className="fixed inset-0 bg-background text-foreground flex items-center justify-center">
           <p className="text-sm text-muted-foreground">Loading audio engine…</p>
         </div>
       ) : portrait ? (
-        <PortraitLayout mixer={mixer} mode={mode} setMode={setMode} />
+        <PortraitLayout mixer={mixer} mode={mode} setMode={changeMode} onAutomix={() => setAutomixOpen(true)} />
       ) : fourDeck ? (
-        <FourDeckLayout mixer={mixer} mode={mode} setMode={setMode} />
+        <FourDeckLayout mixer={mixer} mode={mode} setMode={changeMode} />
       ) : (
         <div className="fixed inset-0 bg-background text-foreground select-none overflow-hidden">
           {mode === "video" ? (
@@ -75,7 +80,7 @@ function DjApp() {
                 <TopBar deckA={decks.left} deckB={decks.right} />
                 <div className="h-px bg-border" />
                 <div className="absolute left-1/2 -translate-x-1/2 top-1 flex items-center gap-1">
-                  <SettingsPanel mode={mode} setMode={setMode} />
+                  <SettingsPanel mode={mode} setMode={changeMode} onAutomix={() => setAutomixOpen(true)} />
                   <ThemeToggle />
                 </div>
               </div>
@@ -102,7 +107,7 @@ function DjApp() {
                   <div className="h-px bg-border" />
                   <div className="absolute left-1/2 -translate-x-1/2 top-1 flex items-center gap-1">
                     
-                    <SettingsPanel mode={mode} setMode={setMode} />
+                    <SettingsPanel mode={mode} setMode={changeMode} onAutomix={() => setAutomixOpen(true)} />
                     <ThemeToggle />
                   </div>
                 </div>
