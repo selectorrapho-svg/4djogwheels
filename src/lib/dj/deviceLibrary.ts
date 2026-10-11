@@ -62,6 +62,7 @@ export const deviceLibrary = {
     queueArtwork(found);
   },
   addQueue(track: DeviceTrack) { queue = [...queue, track]; publish(); },
+  removeQueue(track: DeviceTrack) { const index = queue.indexOf(track); if (index >= 0) { queue = queue.filter((_, i) => i !== index); publish(); } },
   addAllQueue(items: DeviceTrack[]) { queue = [...queue, ...items]; publish(); },
   addPlaylist(name: string, items: DeviceTrack[]) { playlists = { ...playlists, [name]: [...(playlists[name] ?? []), ...items] }; publish(); },
 };
