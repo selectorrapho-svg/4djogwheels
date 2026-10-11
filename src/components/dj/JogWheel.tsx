@@ -131,12 +131,14 @@ export function JogWheel({ deck, size, accent }: Props) {
       deck.scratchStart();
       startPos = deck.currentTime;
       deck.scratchTo(startPos, 0);
+      ab.x = startPos; ab.v = 0;
       startLoop();
     };
     // Frame-clocked scratch (same model as the waveform): pointer events only
     // accumulate platter angle; one position/velocity update is sent per
     // display frame, so uneven touch-event timing never reaches the audio.
     let raf = 0;
+    const ab = { x: 0, v: 0 };
     let lastCum = 0;
     let lastTick = 0;
     let rotStart = 0;
@@ -151,7 +153,15 @@ export function JogWheel({ deck, size, accent }: Props) {
       let v = Math.max(-16, Math.min(16, dSec / dt));
       if (Math.abs(v) < 0.015) v = 0;
       vel.current = v;
-      deck.scratchTo(startPos + angleToSeconds(cum, sens()), v);
+      // Mixxx-style alpha-beta filter: smooths jittery touch samples into a
+      // steady platter position + velocity, so the audio follows the hand.
+      const meas = startPos + angleToSeconds(cum, sens());
+      const pred = ab.x + ab.v * dt;
+      const r = meas - pred;
+      ab.x = pred + 0.55 * r;
+      ab.v = Math.max(-16, Math.min(16, ab.v + (0.18 * r) / dt));
+      if (Math.abs(ab.v) < 0.015 && v === 0) ab.v = 0;
+      deck.scratchTo(ab.x, ab.v);
       rotRef.current = (((rotStart + (cum * 180) / Math.PI) % 360) + 360) % 360;
     };
     const startLoop = () => {

@@ -1,14 +1,13 @@
 import { useRef, useState } from "react";
 import { Deck } from "@/lib/dj/engine";
 import { useDeck } from "@/lib/dj/useMixer";
-import { Grid2x2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Grid2x2, X } from "lucide-react";
+import { ScratchDnaPanel } from "./ScratchDnaPanel";
 import { Button } from "@/components/ui/button";
 
 const CUE_COLORS = ["#ff3b3b", "#ffcf3b", "#3bff8a", "#3bd2ff", "#a83bff", "#ff3bd2", "#ffffff", "#ff7a3b"];
-const LOOP_LENGTHS = ["1/32", "1/16", "1/8", "1/4", "1/2", "1", "2", "4", "8", "16", "32"];
-const LOOP_BEATS = [1 / 32, 1 / 16, 1 / 8, 1 / 4, 1 / 2, 1, 2, 4, 8, 16, 32];
 
-/** Compact frosted side drawer with hot cues + loop sizes (djay-style pads). */
+/** Compact frosted side drawer with hot cues, pitch cues, skips and Scratch DNA (djay-style pads). */
 export function HotCuePanel({
   deck,
   accent,
@@ -22,8 +21,7 @@ export function HotCuePanel({
 }) {
   useDeck(deck);
   const [open, setOpen] = useState(false);
-  const [loopIdx, setLoopIdx] = useState(7);
-  const [mode, setMode] = useState<"Cue" | "Pitch Cue" | "Skip">("Cue");
+  const [mode, setMode] = useState<"Cue" | "Pitch Cue" | "Skip" | "Scratch DNA">("Cue");
   const hasAny = deck.hotCues.some(Boolean);
 
   return (
@@ -32,7 +30,7 @@ export function HotCuePanel({
         onClick={() => setOpen((o) => !o)}
         className={`w-9 h-9 rounded-full flex items-center justify-center ${open ? "dj-glass-on" : "dj-glass"}`}
         style={{ boxShadow: hasAny ? `0 0 10px ${accent}66, var(--glass-shadow)` : undefined }}
-        title="Hot cues & loops"
+        title="Hot cues & Scratch DNA"
       >
         <Grid2x2 className="w-4 h-4" style={{ color: hasAny ? accent : "var(--muted-foreground)" }} />
       </button>}
