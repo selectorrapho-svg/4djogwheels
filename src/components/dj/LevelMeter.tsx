@@ -35,7 +35,6 @@ export function LevelMeter({ deck, label }: { deck: Deck; label: string }) {
           {Array.from({ length: SEGMENTS }).map((_, i) => <span key={i} data-on="0" />)}
         </div>)}
       </div>
-      <span className="text-[8px] font-bold text-muted-foreground">{label}</span>
     </div>
   );
 }

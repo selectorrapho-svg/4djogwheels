@@ -70,7 +70,7 @@ export function buildRgbStrip(peaks: BandedPeaks, stems: StemsOn, axis: "y" | "x
   const d = img.data;
   const half = STRIP_AMP / 2;
   // Serato-style band palette for the "blocks" and "bars" styles.
-  const BLOCK = { low: [255, 84, 17], mid: [255, 176, 32], high: [220, 226, 255] } as const;
+  const BLOCK = { low: [255, 84, 17], mid: [255, 176, 32], high: [40, 220, 235] } as const;
   const BAR = [
     [255, 60, 60],   // sub
     [255, 140, 40],  // bass
@@ -105,7 +105,8 @@ export function buildRgbStrip(peaks: BandedPeaks, stems: StemsOn, axis: "y" | "x
       continue;
     }
     const mx = Math.max(l, m, h, 1e-6);
-    let r = (l / mx) * 255, g = (m / mx) * 255, bl = (h / mx) * 255;
+    // djay/Serato palette: kicks & bass red, vocals green, highs cyan.
+    let r = (l / mx) * 255, g = (Math.max(m, h * 0.85) / mx) * 255, bl = (h / mx) * 255;
     if (style === "blocks") {
       // Dominant band picks a fixed pro-DJ colour instead of a blend.
       const c = l >= m && l >= h ? BLOCK.low : m >= h ? BLOCK.mid : BLOCK.high;
@@ -169,7 +170,7 @@ export function drawZigzag(
     const along = ((bi / binsPerSec) - t0) * pxPerSec;
     const a = amp * half;
     // zigzag: alternate between the previous and current amplitude each bin
-    ctx.strokeStyle = `rgb(${Math.round((l / mx) * 255)},${Math.round((m / mx) * 255)},${Math.round((h / mx) * 255)})`;
+    ctx.strokeStyle = `rgb(${Math.round((l / mx) * 255)},${Math.round((Math.max(m, h * 0.85) / mx) * 255)},${Math.round((h / mx) * 255)})`;
     ctx.beginPath();
     if (axis === "y") {
       ctx.moveTo(cx - prevA, along);
