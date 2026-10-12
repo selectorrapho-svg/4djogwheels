@@ -2,7 +2,7 @@ import type { BandedPeaks } from "./engine";
 import { BAND_STEM, RGB_BANDS } from "./wavedraw";
 
 // Original six-band spectrum palette, shared with the legacy envelopes.
-// Colour follows the strongest scaled active band; waveform height still
+// Colour blends every active frequency band; waveform height still
 // uses the existing combined magnitude, preserving the current geometry.
 //
 // Speed: the whole track is rendered ONCE into an offscreen strip, then each
@@ -25,17 +25,19 @@ const SPECTRUM = RGB_BANDS.map(([band, color, scale]) => ({
   rgb: (color.match(/\d+/g) ?? []).map(Number),
 }));
 
-function spectrumColor(peaks: BandedPeaks, stems: StemsOn, index: number) {
-  let strongest = 0;
-  let color = SPECTRUM[0].rgb;
+export function spectrumColor(peaks: BandedPeaks, stems: StemsOn, index: number): number[] {
+  const color = [0, 0, 0];
+  let total = 0;
   for (const entry of SPECTRUM) {
-    const energy = peaks[entry.band][index] * Number(stems[BAND_STEM[entry.band]]) * entry.scale;
-    if (energy > strongest) {
-      strongest = energy;
-      color = entry.rgb;
-    }
+    // Loud bass must not discard mids/highs. Perceptual compression retains
+    // quieter bands, unlike the previous winner-takes-all red/yellow mapping.
+    const energy = Math.sqrt(Math.max(0, peaks[entry.band][index] * Number(stems[BAND_STEM[entry.band]]))) * entry.scale;
+    total += energy;
+    for (let channel = 0; channel < 3; channel++) color[channel] += entry.rgb[channel] * energy;
   }
-  return color;
+  if (total === 0) return color;
+  const brightness = Math.max(...color) / 255;
+  return color.map(value => Math.round(value / brightness));
 }
 
 export function rgbColumns(peaks: BandedPeaks, stems: StemsOn) {
