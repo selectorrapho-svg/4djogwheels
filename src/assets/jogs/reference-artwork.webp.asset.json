@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "9f06ccf8-ef28-4608-85d5-8676392802cc",
-  "project_id": "2bb948d3-0561-416a-b58f-4ecedc5aa9b1",
-  "url": "/__l5e/assets-v1/9f06ccf8-ef28-4608-85d5-8676392802cc/jog-reference-artwork.webp",
-  "r2_key": "a/v1/2bb948d3-0561-416a-b58f-4ecedc5aa9b1/9f06ccf8-ef28-4608-85d5-8676392802cc/jog-reference-artwork.webp",
-  "original_filename": "jog-reference-artwork.webp",
-  "size": 4356,
   "content_type": "image/webp",
-  "created_at": "2026-10-11T06:23:28Z"
+  "created_at": "2026-10-11T06:23:28Z",
+  "original_filename": "jog-reference-artwork.webp",
+  "project_id": "8ef1319f-c713-46a7-8dcd-6e1e06ef9897",
+  "r2_key": "a/v1/8ef1319f-c713-46a7-8dcd-6e1e06ef9897/9f06ccf8-ef28-4608-85d5-8676392802cc/jog-reference-artwork.webp",
+  "size": 4356,
+  "url": "/__l5e/assets-v1/9f06ccf8-ef28-4608-85d5-8676392802cc/jog-reference-artwork.webp",
+  "version": 1
 }
