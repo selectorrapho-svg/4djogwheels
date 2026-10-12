@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Deck } from "@/lib/dj/engine";
 import { useDeck } from "@/lib/dj/useMixer";
-import { Grid2x2, X } from "lucide-react";
+import { Grid2x2, Magnet, X } from "lucide-react";
 import { ScratchDnaPanel } from "./ScratchDnaPanel";
 import { Button } from "@/components/ui/button";
 
@@ -46,6 +46,9 @@ export function HotCuePanel({
             <h2 className="text-[11px] uppercase tracking-widest" style={{ color: accent }}>
               Deck {deck.id} Cues
             </h2>
+            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Snap hot cues to grid deck ${deck.id}`} aria-pressed={deck.quantize} title="Snap hot cues to beat grid" onClick={() => deck.setQuantize(!deck.quantize)}>
+              <Magnet className={`h-4 w-4 ${deck.quantize ? "text-primary" : "text-muted-foreground"}`} />
+            </Button>
             {!inline && <button onClick={() => setOpen(false)} className="text-muted-foreground">
               <X className="w-4 h-4" />
             </button>}

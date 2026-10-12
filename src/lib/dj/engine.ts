@@ -1,6 +1,6 @@
 import { native, isNative } from "./nativeAudio";
 import { ScratchPlayer } from "./scratchPlayer";
-import { correctedGrid } from "./beatGrid";
+import { correctedGrid, snapToBeat } from "./beatGrid";
 import { crossfaderGains, coastTau, DEFAULT_SCRATCH, type ScratchSettings, type XfCurve } from "./scratchMath";
 const scratchCfg = (): ScratchSettings => ({ ...DEFAULT_SCRATCH, ...((globalThis as { __djScratch?: Partial<ScratchSettings> }).__djScratch ?? {}) });
 import { analyzeTrackBeats } from "./beatAnalysis";
@@ -714,9 +714,13 @@ export class Deck {
   }
 
   setHotCue(i: number) {
-    this.hotCues[i] = { index: i, time: this.currentTime };
+    if (i < 0 || i >= this.hotCues.length || !Number.isInteger(i)) return;
+    this.hotCues[i] = { index: i, time: this.quantize ? snapToBeat(this.currentTime, this.bpm, this.firstBeat, this.duration) : this.currentTime };
     this.emit();
   }
+
+  quantize = true;
+  setQuantize(on: boolean) { this.quantize = on; this.emit(); }
 
   clearHotCue(i: number) {
     this.hotCues[i] = null;
@@ -1928,8 +1932,8 @@ export function computeBandedPeaks(buffer: AudioBuffer, bins: number): BandedPea
   const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : data;
   const sr = buffer.sampleRate;
   const cutoffs = [110, 420, 1800, 5200, 9500];
-  const lp = [0, 0, 0, 0, 0];
-  const size = Math.max(1, Math.ceil(data.length / bins));
+  const states = [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]];
+  const coefficients = cutoffs.map(c => Math.exp(-2 * Math.PI * c / sr));
   const sub = new Float32Array(bins);
   const bass = new Float32Array(bins);
   const lowMid = new Float32Array(bins);
@@ -1941,11 +1945,14 @@ export function computeBandedPeaks(buffer: AudioBuffer, bins: number): BandedPea
     let s = 0, b = 0, lm = 0, m = 0, p = 0, h = 0, o = 0;
     const start = Math.floor(i * data.length / bins);
     const end = Math.min(data.length, Math.floor((i + 1) * data.length / bins));
-    // Bound analysis work for long recordings without dropping an entire bin.
-    const stride = Math.max(1, Math.floor((end - start) / 256));
-    const a = cutoffs.map((c) => Math.exp(-2 * Math.PI * c * stride / sr));
-    for (let j = start; j < end; j += stride) {
-      const x = (data[j] + right[j]) * 0.5;
+    // Filter at the original sample rate: skipping samples aliases cymbals
+    // and vocals into bass. Measure each stereo channel before combining so
+    // out-of-phase content cannot disappear from the spectral display.
+    const a = coefficients;
+    for (let j = start; j < end; j++) {
+      for (let channel = 0; channel < 2; channel++) {
+      const x = channel === 0 ? data[j] : right[j];
+      const lp = states[channel];
       lp[0] = a[0] * lp[0] + (1 - a[0]) * x;
       lp[1] = a[1] * lp[1] + (1 - a[1]) * x;
       lp[2] = a[2] * lp[2] + (1 - a[2]) * x;
@@ -1971,6 +1978,7 @@ export function computeBandedPeaks(buffer: AudioBuffer, bins: number): BandedPea
       if (ah > h) h = ah;
       if (ap > p) p = ap;
       if (ao > o) o = ao;
+      }
     }
     sub[i] = s;
     bass[i] = b;
