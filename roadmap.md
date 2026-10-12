@@ -1,5 +1,9 @@
 # Task roadmap
 
+## Current waveform palette restoration
+- [ ] Copy only the original full-spectrum RGB colors from the specified previous project; retain zigzag geometry and controls.
+- [ ] Verify shared waveform rendering and existing stem/audio regressions.
+
 ## October 12 waveform, scratch and mixer corrections
 - [ ] Restore RGB and automatic zoomed zigzags across waveform lanes.
 - [ ] Fix jog position continuity and scratch ticking; run audio regressions.
