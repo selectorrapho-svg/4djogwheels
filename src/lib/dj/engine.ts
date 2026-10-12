@@ -1,5 +1,6 @@
 import { native, isNative } from "./nativeAudio";
 import { ScratchPlayer } from "./scratchPlayer";
+import { correctedGrid } from "./beatGrid";
 import { crossfaderGains, coastTau, DEFAULT_SCRATCH, type ScratchSettings, type XfCurve } from "./scratchMath";
 const scratchCfg = (): ScratchSettings => ({ ...DEFAULT_SCRATCH, ...((globalThis as { __djScratch?: Partial<ScratchSettings> }).__djScratch ?? {}) });
 import { analyzeTrackBeats } from "./beatAnalysis";
@@ -203,6 +204,8 @@ export class Deck {
   out: GainNode;
   analyser: AnalyserNode;
   private meterData: Uint8Array<ArrayBuffer>;
+  private stereoAnalysers: AnalyserNode[] = [];
+  private stereoMeterData: Uint8Array<ArrayBuffer>[] = [];
   playing = false;
   startedAt = 0;
   pausedAt = 0;
@@ -222,6 +225,7 @@ export class Deck {
   realStems = false;
   stemStatus: "bands" | "loading" | "locked" | "unsupported" | "error" | "ready" = "bands";
   private loadToken = 0;
+  private gridRevision = 0;
   private stemSplitter: ChannelSplitterNode | null = null;
   private stemMergers: ChannelMergerNode[] = [];
   trackName = "";
@@ -309,6 +313,15 @@ export class Deck {
     this.analyser.smoothingTimeConstant = 0.72;
     this.meterData = new Uint8Array(this.analyser.frequencyBinCount);
     this.fxOut.connect(this.analyser).connect(this.out);
+    const meterSplitter = ctx.createChannelSplitter(2);
+    this.fxOut.connect(meterSplitter);
+    this.stereoAnalysers = [0, 1].map(channel => {
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      meterSplitter.connect(analyser, channel);
+      this.stereoMeterData.push(new Uint8Array(analyser.fftSize));
+      return analyser;
+    });
     this.out.connect(masterIn);
     // Pre-fader headphone (PFL) tap — the Mixer routes it to the cue output.
     this.cueTap = ctx.createGain();
@@ -455,11 +468,12 @@ export class Deck {
   /** Background analysis: accurate beat grid, then optional AI stems. */
   private afterLoad() {
     const token = ++this.loadToken;
+    const revision = this.gridRevision;
     this.resetStemRouting();
     const buf = this.buffer;
     if (!buf) return;
     void analyzeTrackBeats(buf).then((g) => {
-      if (token !== this.loadToken || !g || !g.bpm) return;
+      if (token !== this.loadToken || revision !== this.gridRevision || !g || !g.bpm) return;
       this.bpm = Math.round(g.bpm * 100) / 100;
       this.firstBeat = g.firstBeat;
       this.emit();
@@ -654,12 +668,26 @@ export class Deck {
   }
 
   seek(t: number) {
+    if (!Number.isFinite(t)) return;
+    if (this.scratching) {
+      this.wasPlayingBeforeScratch = false;
+      this.endScratch();
+    }
     const wasPlaying = this.playing;
     if (wasPlaying) this.pause();
     this.pausedAt = Math.max(0, Math.min(this.duration, t));
     if (this.videoEl && !this.videoEl.seeking) this.videoEl.currentTime = this.pausedAt;
     if (wasPlaying) this.play();
     else this.emit();
+  }
+
+  setBeatGrid(bpm: number, firstBeat = this.firstBeat) {
+    const grid = correctedGrid(bpm, firstBeat);
+    if (!grid) return;
+    this.gridRevision++;
+    this.bpm = grid.bpm;
+    this.firstBeat = grid.firstBeat;
+    this.emit();
   }
 
   setCue() {
@@ -835,6 +863,17 @@ export class Deck {
       sum += n * n;
     }
     return Math.min(1, Math.sqrt(sum / this.meterData.length) * 3.2);
+  }
+
+  getStereoLevels(): [number, number] {
+    const levels = this.stereoAnalysers.map((analyser, channel) => {
+      const data = this.stereoMeterData[channel];
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (const sample of data) sum += ((sample - 128) / 128) ** 2;
+      return Math.min(1, Math.sqrt(sum / data.length) * 3.2);
+    });
+    return [levels[0] ?? 0, levels[1] ?? 0];
   }
 
   setEq(band: "low" | "mid" | "high", db: number) {
@@ -1173,6 +1212,8 @@ export class Deck {
   endScratch() {
     if (!this.scratching) return;
     this.releaseToken++;
+    const livePosition = this.scratchPlayer?.position;
+    if (!isNative() && livePosition != null) this.scratchPos = Math.max(0, Math.min(this.duration, livePosition));
     this.scratchPlayer?.stop();
     if (isNative()) native.pause(this.id);
     this.scratchRate = 0;

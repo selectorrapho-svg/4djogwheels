@@ -115,7 +115,8 @@ export function PortraitLayout({
 
   const [sheet, setSheet] = useState<Sheet>(null);
   const [libraryDeck, setLibraryDeck] = useState<Deck | null>(null);
-  const [mainView, setMainView] = useState<MainView>("decks");
+  const [selectedView, setMainView] = useState<MainView>("decks");
+  const mainView = mode === "video" && selectedView === "mixer" ? "decks" : selectedView;
   const [toolTab, setToolTab] = useState<ToolTab>("fx");
   const [topVisible, setTopVisible] = useState(false);
   const [toolDeck, setToolDeck] = useState<"left" | "right">("left");
@@ -145,12 +146,13 @@ export function PortraitLayout({
         <MiniDeckHeader deck={deckLeft} side="left" onLibrary={() => setLibraryDeck(deckLeft)} />
         <MiniDeckHeader deck={deckRight} side="right" onLibrary={() => setLibraryDeck(deckRight)} />
       </div>
-      <div className="grid grid-cols-4 h-10 shrink-0 border-b border-border bg-secondary">
+      <div className={`grid ${mode === "video" ? "grid-cols-3" : "grid-cols-4"} h-10 shrink-0 border-b border-border bg-secondary`}>
         {([ ["mixer", <Sliders className="size-5" />, "Mixer overview"], ["decks", <Disc3 className="size-5" />, "Jog wheels"], ["wave", <Activity className="size-5" />, "Waveforms"], ["pads", <Grid3x3 className="size-5" />, "Pads"] ] as const).map(([key, icon, label]) => (
-          <button key={key} onClick={() => setMainView(key)} title={label} aria-label={label} aria-pressed={mainView === key} className={`grid place-items-center ${mainView === key ? "text-primary bg-background" : "text-muted-foreground"}`}>{icon}</button>
+          (mode !== "video" || key !== "mixer") && <Button variant="ghost" key={key} onClick={() => setMainView(key)} title={label} aria-label={label} aria-pressed={mainView === key} className={`h-full rounded-none grid place-items-center ${mainView === key ? "text-primary bg-background" : "text-muted-foreground"}`}>{icon}</Button>
         ))}
       </div>
       <div key={pair} className="flex-1 min-h-0 flex flex-col relative overflow-hidden bg-background">
+        {mainView === "mixer" && mode !== "video" && <MixerView deckA={deckLeft} deckB={deckRight} />}
          {mainView === "wave" && <div className="absolute right-2 top-2 z-20"><WaveformOptions /></div>}
         {mainView === "decks" && <div className="grid grid-cols-2 h-full items-center justify-items-center overflow-hidden gap-1 px-1">
           <div className="min-w-0"><JogWheel deck={deckLeft} size={jogSize} accent="#ff8a3b" /></div>

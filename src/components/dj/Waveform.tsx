@@ -4,8 +4,9 @@ import { stemBands, smoothAt, BAND_STEM } from "@/lib/dj/wavedraw";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDjSettings } from "@/hooks/useDjSettings";
+import { BeatGridEditor, useGridDrag } from "./BeatGridEditor";
 import { useWaveScratch } from "@/lib/dj/useWaveScratch";
-import { buildRgbStrip, drawRgbStrip, drawZigzag, isZigzag, stemsKey, stemsOn, waveStyle, type RgbStrip } from "@/lib/dj/rgbWave";
+import { buildRgbStrip, drawRgbStrip, drawZigzag, zoomedZigzag, stemsKey, stemsOn, waveStyle, type RgbStrip } from "@/lib/dj/rgbWave";
 
 function makeStrip(axis: "x" | "y") {
   const ref = { strip: null as RgbStrip | null, key: "", peaks: null as BandedPeaks | null };
@@ -35,6 +36,7 @@ export function Waveform({ deck, side }: Props) {
   const peaksRef = useRef<BandedPeaks | null>(null);
   const rafRef = useRef(0);
   const [zoom, setZoom] = useState(1);
+  const [editingGrid, setEditingGrid] = useState(false);
   const [settings] = useDjSettings();
   const effectiveZoom = zoom * settings.waveZoom;
 
@@ -85,15 +87,14 @@ export function Waveform({ deck, side }: Props) {
         ctx.globalCompositeOperation = "source-over";
         const style = waveStyle();
         // Zigzag style: crisp Serato-style spikes once zoomed in far enough.
-        if (style && isZigzag() && pxPerSec > 260) {
-          drawZigzag(ctx, peaks, stemsOn(deck.stems, deck.stemLevels), dur, t, pxPerSec, H, centerY, 0, W, "y");
-        } else if (style) {
+        if (style || zoomedZigzag(effectiveZoom)) {
           const strip = getStrip(peaks, deck);
           if (strip) {
           for (let lane = 0; lane < settings.waveTracks; lane++) {
             const laneStems = settings.waveTracks === 1 ? stemsOn(deck.stems, deck.stemLevels) : settings.waveTracks === 2 ? { bass: lane === 0 && deck.stems.bass.on ? deck.stemLevels.bass : 0, drums: lane === 0 && deck.stems.drums.on ? deck.stemLevels.drums : 0, vocals: lane === 1 && deck.stems.vocals.on ? deck.stemLevels.vocals : 0, other: lane === 1 && deck.stems.other.on ? deck.stemLevels.other : 0 } : { bass: lane === 0 && deck.stems.bass.on ? deck.stemLevels.bass : 0, drums: lane === 0 && deck.stems.drums.on ? deck.stemLevels.drums : 0, vocals: lane === 1 && deck.stems.vocals.on ? deck.stemLevels.vocals : 0, other: lane === 2 && deck.stems.other.on ? deck.stemLevels.other : 0 };
             const laneStrip = settings.waveTracks === 1 ? strip : getLaneStrip(lane, peaks, laneStems);
-            if (laneStrip) drawRgbStrip(ctx, laneStrip, dur, t, pxPerSec, H, centerY, lane * W / settings.waveTracks, W / settings.waveTracks);
+            if (zoomedZigzag(effectiveZoom)) drawZigzag(ctx, peaks, laneStems, dur, t, pxPerSec, H, centerY, lane * W / settings.waveTracks, W / settings.waveTracks, "y");
+            else if (laneStrip) drawRgbStrip(ctx, laneStrip, dur, t, pxPerSec, H, centerY, lane * W / settings.waveTracks, W / settings.waveTracks);
           }
           }
         } else for (const [key, col, scale] of stemBands()) {
@@ -126,13 +127,14 @@ export function Waveform({ deck, side }: Props) {
       // beat grid
       if (deck.bpm && deck.bpm > 40 && dur > 0) {
         const secPerBeat = 60 / deck.bpm;
-        const firstBeat = Math.floor((t - secondsVisible / 2) / secPerBeat);
-        const lastBeat = Math.ceil((t + secondsVisible / 2) / secPerBeat);
+        const firstBeat = Math.floor((t - secondsVisible / 2 - deck.firstBeat) / secPerBeat);
+        const lastBeat = Math.ceil((t + secondsVisible / 2 - deck.firstBeat) / secPerBeat);
         for (let bi = firstBeat; bi <= lastBeat; bi++) {
-          const y = centerY + (bi * secPerBeat - t) * pxPerSec;
+          const y = centerY + (deck.firstBeat + bi * secPerBeat - t) * pxPerSec;
           const isDown = bi % 4 === 0;
           ctx.fillStyle = isDown ? "rgba(255,255,255,0.32)" : "rgba(255,255,255,0.09)";
-          ctx.fillRect(0, y, W, 1);
+          ctx.fillRect(0, y, W, editingGrid ? 2 : 1);
+          if (editingGrid) { ctx.beginPath(); ctx.arc(W / 2, y, 4 * dpr, 0, Math.PI * 2); ctx.fill(); }
           if (isDown) {
             ctx.fillStyle = "rgba(255,255,255,0.55)";
             ctx.font = `${9 * dpr}px ui-sans-serif`;
@@ -194,21 +196,23 @@ export function Waveform({ deck, side }: Props) {
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(rafRef.current); observer.disconnect(); };
-  }, [deck, side, effectiveZoom, settings.waveTracks, settings.waveColor]);
+  }, [deck, side, effectiveZoom, settings.waveTracks, settings.waveColor, editingGrid]);
 
   const scratch = useWaveScratch(deck, "y", () => {
     const h = canvasRef.current?.clientHeight ?? 1;
     return h / (8 / effectiveZoom);
   });
 
+  const gridDrag = useGridDrag(deck, "y", () => (canvasRef.current?.clientHeight ?? 1) / (8 / effectiveZoom));
+
   return (
-    <div className={`relative w-full h-full overflow-hidden bg-background ${settings.waveHighContrast ? "wave-high-contrast" : ""}`} style={{ touchAction: "none" }} {...(settings.waveScratch ? scratch : {})}>
+    <div className={`relative w-full h-full overflow-hidden bg-background ${settings.waveHighContrast ? "wave-high-contrast" : ""}`} style={{ touchAction: "none" }} {...(editingGrid ? gridDrag : settings.waveScratch ? scratch : {})}>
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block"  />
 
       <div className={`absolute ${side === "left" ? "right-1" : "left-1"} top-1 flex flex-col gap-1`}>
         <Button variant="ghost"
           onPointerDown={event => event.stopPropagation()}
-          onClick={() => setZoom((z) => Math.min(4, z * 1.4))}
+          aria-label={`Zoom in deck ${deck.id}`} onClick={() => setZoom((z) => Math.min(16, z * 1.4))}
           className="dj-glass size-6 p-0 rounded-md text-muted-foreground hover:text-foreground"
           title="Zoom in"
         >
@@ -216,12 +220,14 @@ export function Waveform({ deck, side }: Props) {
         </Button>
         <Button variant="ghost"
           onPointerDown={event => event.stopPropagation()}
-          onClick={() => setZoom((z) => Math.max(0.25, z / 1.4))}
+          aria-label={`Zoom out deck ${deck.id}`} onClick={() => setZoom((z) => Math.max(0.25, z / 1.4))}
           className="dj-glass size-6 p-0 rounded-md text-muted-foreground hover:text-foreground"
           title="Zoom out"
         >
           <ZoomOut className="w-3 h-3" />
         </Button>
+        <BeatGridEditor deck={deck} editing={editingGrid} onEditing={setEditingGrid} />
+        {editingGrid && <Button variant="default" className="h-6 px-1 text-[9px]" onPointerDown={e => e.stopPropagation()} onClick={() => setEditingGrid(false)}>Done</Button>}
       </div>
     </div>
   );
@@ -246,6 +252,7 @@ export function TrackOverview({ deck, accent }: { deck: Deck; accent: string }) 
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const getStrip = makeStrip("x");
     const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     const draw = () => {
       const w = canvas.clientWidth * dpr;
@@ -262,27 +269,8 @@ export function TrackOverview({ deck, accent }: { deck: Deck; accent: string }) 
         ctx.fillRect(0, cy - 1, w, 2);
         return;
       }
-      const n = peaks.overall.length;
-      ctx.globalCompositeOperation = "source-over";
-      for (const [key, col, scale] of stemBands()) {
-        if (!deck.stems[BAND_STEM[key as string]].on) continue;
-        const arr = peaks[key] as Float32Array;
-        ctx.beginPath();
-        for (let x = 0; x <= w; x++) {
-          const v = smoothAt(arr, (x / w) * (n - 1)) * deck.stemLevels[BAND_STEM[key as string]] * cy * scale;
-          ctx.lineTo(x, cy - v);
-        }
-        for (let x = w; x >= 0; x--) {
-          const v = smoothAt(arr, (x / w) * (n - 1)) * deck.stemLevels[BAND_STEM[key as string]] * cy * scale;
-          ctx.lineTo(x, cy + v);
-        }
-        ctx.closePath();
-        ctx.fillStyle = col;
-        ctx.globalAlpha = 0.85;
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = "source-over";
+      const strip = getStrip(peaks, deck);
+      if (strip && deck.duration > 0) drawRgbStrip(ctx, strip, deck.duration, deck.duration / 2, w / deck.duration, w, w / 2, 0, h);
       const p = deck.duration ? deck.currentTime / deck.duration : 0;
       ctx.fillStyle = accent;
       ctx.fillRect(p * w - 1, 0, 2, h);

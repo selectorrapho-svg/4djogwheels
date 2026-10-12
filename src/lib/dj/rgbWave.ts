@@ -31,7 +31,7 @@ export function rgbColumns(peaks: BandedPeaks, stems: StemsOn) {
     // Keep green exclusive to vocals; drums retain red/yellow energy.
     const l = peaks.sub[i] * level("sub") + peaks.bass[i] * level("bass") + peaks.lowMid[i] * level("lowMid");
     const m = peaks.mid[i] * level("mid");
-    const h = (peaks.presence[i] * level("presence") + peaks.high[i] * level("high")) * 1.6;
+    const h = peaks.presence[i] * level("presence") + peaks.high[i] * level("high");
     low[i] = l;
     mid[i] = m;
     high[i] = h;
@@ -43,12 +43,24 @@ export function rgbColumns(peaks: BandedPeaks, stems: StemsOn) {
 
 export type WaveStyle = "rgb" | "blocks" | "bars";
 
+const columnCache = new WeakMap<BandedPeaks, { key: string; columns: ReturnType<typeof rgbColumns> }>();
+function cachedColumns(peaks: BandedPeaks, stems: StemsOn) {
+  const key = JSON.stringify(stems);
+  const cached = columnCache.get(peaks);
+  if (cached?.key === key) return cached.columns;
+  const columns = rgbColumns(peaks, stems);
+  columnCache.set(peaks, { key, columns });
+  return columns;
+}
+
+export const zoomedZigzag = (zoom: number) => zoom > 1.05 || isZigzag();
+
 /** Pre-render the full track. axis "y" = time runs down (vertical decks). */
 export function buildRgbStrip(peaks: BandedPeaks, stems: StemsOn, axis: "y" | "x", style: WaveStyle = "rgb"): RgbStrip | null {
   if (typeof document === "undefined") return null;
   const srcN = peaks.overall.length;
   const bins = Math.min(srcN, MAX_BINS);
-  const { low, mid, high, maxAll } = rgbColumns(peaks, stems);
+  const { low, mid, high, maxAll } = cachedColumns(peaks, stems);
   const canvas = document.createElement("canvas");
   canvas.width = axis === "y" ? STRIP_AMP : bins;
   canvas.height = axis === "y" ? bins : STRIP_AMP;
@@ -137,16 +149,16 @@ export function drawZigzag(
   axis: "y" | "x",
 ) {
   if (duration <= 0) return;
-  const { low, mid, high, maxAll } = rgbColumns(peaks, stems);
+  const { low, mid, high, maxAll } = cachedColumns(peaks, stems);
   const n = peaks.overall.length;
   const binsPerSec = n / duration;
   const t0 = t - centerPx / pxPerSec;
   const cx = crossStart + crossLen / 2;
   const half = crossLen * 0.48;
-  const step = Math.max(0.5, (binsPerSec / pxPerSec) * 0.9); // ~1 bin per pixel
+  const step = Math.max(1, binsPerSec / pxPerSec * 2); // bounded visible transients
   const b0 = Math.max(0, t0 * binsPerSec);
   const b1 = Math.min(n - 1, (t0 + timeLen / pxPerSec) * binsPerSec);
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.2;
   let prevA = 0;
   let bi = b0;
   while (bi <= b1) {

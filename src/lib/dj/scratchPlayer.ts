@@ -26,6 +26,8 @@ class ScratchProcessor extends AudioWorkletProcessor {
     this.motionGain = 0;
     this.dcX = []; this.dcY = [];
     this.events = [];
+    this.sourceRate = sampleRate;
+    this.session = 0;
     // 'rate' = follow a signed speed (motor / brake / backspin)
     // 'pos'  = position servo: follow the platter's absolute position so the
     //          audio can never drift away from the hand (no velocity integration).
@@ -36,10 +38,13 @@ class ScratchProcessor extends AudioWorkletProcessor {
       const d = e.data;
       if (d.type === 'buffer') {
         this.ch = d.channels.map((c) => new Float32Array(c));
+        this.sourceRate = d.sampleRate || sampleRate;
         this.dcX = this.ch.map(() => 0); this.dcY = this.ch.map(() => 0);
       } else if (d.type === 'start') {
         this.events = []; this.envelope = 0; this.motionGain = 0;
-        this.pos = d.pos * sampleRate;
+        this.session = d.session || 0;
+        this.dcX.fill(0); this.dcY.fill(0);
+        this.pos = d.pos * this.sourceRate;
         this.rate = d.rate || 0;
         this.target = this.rate;
         this.tPos = this.pos; this.tVel = 0; this.age = 0;
@@ -55,9 +60,9 @@ class ScratchProcessor extends AudioWorkletProcessor {
         }
       } else if (d.type === 'target') {
         // Absolute platter position (seconds) + hand velocity (sec/sec).
-        this.tPos = d.pos * sampleRate;
+        this.tPos = d.pos * this.sourceRate;
         this.tVel = Number.isFinite(d.vel) ? Math.max(-24, Math.min(24, d.vel)) : 0;
-        this.age = 0;
+        this.age = Number.isFinite(d.when) ? Math.max(0, Math.min(0.02, currentTime - d.when)) * sampleRate : 0;
         this.mode = 'pos';
       } else if (d.type === 'motor') {
         // Release: spin up/down to a speed with a turntable-style time constant.
@@ -65,11 +70,11 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.motorTau = Math.max(0.0005, d.tau || 0.0009);
         this.mode = 'rate';
       } else if (d.type === 'pos') {
-        this.pos = d.pos * sampleRate;
+        this.pos = d.pos * this.sourceRate;
       } else if (d.type === 'stop') {
         this.on = false;
         this.events = [];
-        this.port.postMessage({ type: 'pos', pos: this.pos / sampleRate, final: true });
+        this.port.postMessage({ type: 'pos', pos: this.pos / this.sourceRate, rate: this.rate, session: this.session, when: currentTime, final: true });
       }
     };
   }
@@ -106,6 +111,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
       return true;
     }
     const n = this.ch[0].length;
+    const ratio = this.sourceRate / sampleRate;
     const jump = Math.abs(this.target - this.rate);
     const reversing = this.target * this.rate < 0;
     const tau = this.motorTau > 0.0011 ? this.motorTau : reversing ? 0.002 : jump > 2 ? 0.0012 : 0.0009;
@@ -131,15 +137,17 @@ class ScratchProcessor extends AudioWorkletProcessor {
       }
       if (this.mode === 'pos') {
         if (this.age < maxAge) {
-          const goal = this.tPos + this.tVel * this.age;
+          const goal = this.tPos + this.tVel * this.age * ratio;
           const flip = this.tVel * this.rate < 0;
           const hard = flip || Math.abs(this.tVel - this.rate) > 0.3;
-          let desired = this.tVel + (goal - this.pos) * (hard ? servoHard : servoSoft);
+          let desired = this.tVel + (goal - this.pos) / ratio * (hard ? servoHard : servoSoft);
           if (desired > 24) desired = 24; else if (desired < -24) desired = -24;
           this.rate += (desired - this.rate) * (hard ? kHard : kSoft);
         } else {
           // No fresh hand data: coast down smoothly instead of hard-stopping.
-          this.rate *= vDecay;
+          const heldGoal = this.tPos + this.tVel * maxAge * ratio;
+          const desired = Math.max(-24, Math.min(24, (heldGoal - this.pos) / ratio * servoSoft));
+          this.rate += (desired - this.rate) * kSoft;
           if (Math.abs(this.rate) < 0.001) this.rate = 0;
         }
         this.age++;
@@ -161,11 +169,11 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.dcX[c] = value; this.dcY[c] = filtered;
         out[c][s] = filtered * this.motionGain * this.envelope;
       }
-      this.pos += this.rate;
+      this.pos += this.rate * ratio;
       if (this.pos < 0) { this.pos = 0; this.rate = 0; this.target = 0; this.tVel = 0; if (this.tPos < 0) this.tPos = 0; }
       if (this.pos > n - 2) { this.pos = n - 2; this.rate = 0; this.target = 0; this.tVel = 0; if (this.tPos > n - 2) this.tPos = n - 2; }
     }
-    if (++this.frame % 4 === 0) this.port.postMessage({ type: 'pos', pos: this.pos / sampleRate, rate: this.rate });
+    if (++this.frame % 2 === 0) this.port.postMessage({ type: 'pos', pos: this.pos / this.sourceRate, rate: this.rate, session: this.session, when: (currentFrame + len) / sampleRate });
     return true;
   }
 }
@@ -194,6 +202,8 @@ export class ScratchPlayer {
   private channels = 2;
   private starting = false;
   private pendingTarget: { pos: number; vel: number } | null = null;
+  private reportedPosition: number | null = null;
+  private reportedTime = 0;
   /** Last speed reported by the worklet (sec/sec), used for release hand-off. */
   liveRate = 0;
   /** Called ~every 512 frames with the live playhead position (seconds). */
@@ -220,9 +230,14 @@ export class ScratchPlayer {
         outputChannelCount: [channels],
       });
       node.port.onmessage = (e: MessageEvent) => {
-        const d = e.data as { type?: string; pos?: number; rate?: number };
+        const d = e.data as { type?: string; pos?: number; rate?: number; session?: number; when?: number };
+        if (d.session !== this.generation) return;
         if (typeof d?.rate === "number") this.liveRate = d.rate;
-        if (d?.type === "pos" && typeof d.pos === "number") this.onPos(d.pos, Boolean((d as { final?: boolean }).final));
+        if (d?.type === "pos" && typeof d.pos === "number") {
+          this.reportedPosition = d.pos;
+          this.reportedTime = d.when ?? this.ctx.currentTime;
+          this.onPos(d.pos, Boolean((d as { final?: boolean }).final));
+        }
       };
       node.connect(this.dest);
       this.node = node;
@@ -242,7 +257,7 @@ export class ScratchPlayer {
     for (let c = 0; c < count; c++) {
       channels.push(buffer.getChannelData(c).slice().buffer);
     }
-    this.node.port.postMessage({ type: "buffer", channels }, channels);
+    this.node.port.postMessage({ type: "buffer", channels, sampleRate: buffer.sampleRate }, channels);
     this.sent = buffer;
   }
 
@@ -251,10 +266,13 @@ export class ScratchPlayer {
     this.starting = true;
     this.pendingTarget = null;
     this.pendingRate = rate;
+    this.reportedPosition = pos;
+    this.reportedTime = this.ctx.currentTime;
+    this.liveRate = rate;
     await this.ready;
     if (!this.node || generation !== this.generation) return false;
     this.send(buffer);
-    this.node.port.postMessage({ type: "start", pos, rate: this.pendingRate });
+    this.node.port.postMessage({ type: "start", pos, rate: this.pendingRate, session: generation });
     this.starting = false;
     this.flushTarget();
     return true;
@@ -262,7 +280,7 @@ export class ScratchPlayer {
 
   private flushTarget() {
     const target = this.pendingTarget;
-    if (target) this.node?.port.postMessage({ type: "target", pos: target.pos, vel: target.vel });
+    if (target) this.node?.port.postMessage({ type: "target", pos: target.pos, vel: target.vel, when: this.ctx.currentTime });
     this.pendingTarget = null;
   }
 
@@ -280,7 +298,7 @@ export class ScratchPlayer {
   /** Position-servo scratch: absolute platter position (s) + hand velocity. */
   setTarget(pos: number, vel: number) {
     if (this.starting) { this.pendingTarget = { pos, vel }; return; }
-    this.node?.port.postMessage({ type: "target", pos, vel });
+    this.node?.port.postMessage({ type: "target", pos, vel, when: this.ctx.currentTime });
   }
 
   /** Motor/brake ramp toward `rate` with time constant `tau` seconds. */
@@ -290,6 +308,11 @@ export class ScratchPlayer {
 
   setPos(pos: number) {
     this.node?.port.postMessage({ type: "pos", pos });
+  }
+
+  get position() {
+    if (this.reportedPosition === null) return null;
+    return this.reportedPosition + this.liveRate * Math.max(0, Math.min(0.02, this.ctx.currentTime - this.reportedTime));
   }
 
   stop() {

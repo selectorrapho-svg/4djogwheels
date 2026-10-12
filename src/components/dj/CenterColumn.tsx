@@ -24,7 +24,8 @@ export function CenterColumn({ deckA, deckB, mixer, videoMode = false }: { deckA
   useDeck(deckA);
   useDeck(deckB);
   const hasVideo = !!deckA.videoEl || !!deckB.videoEl;
-  const [view, setView] = useState<CenterView | null>("mixer");
+  const [selectedView, setView] = useState<CenterView | null>("mixer");
+  const view = videoMode && selectedView === "mixer" ? null : selectedView;
   const [djs] = useDjSettings();
   const vertical = djs.waveOrientation !== "horizontal";
 
@@ -52,7 +53,7 @@ export function CenterColumn({ deckA, deckB, mixer, videoMode = false }: { deckA
         {view === "wave" && <WaveformOptions />}
       </div>
 
-      <div className={`${view && view !== "samples" ? "flex-1" : videoMode ? "hidden" : "flex-1"} min-h-0 border-b border-border`}>
+      <div className={`${view && view !== "samples" ? "flex-1" : videoMode ? "hidden" : "flex-1"} min-h-0 overflow-hidden border-b border-border`}>
         {view === "wave" && (
           <div className={`flex h-full min-h-0 gap-1 ${vertical ? "" : "flex-col"}`}>
             {!vertical && (<>
@@ -90,7 +91,7 @@ export function CenterColumn({ deckA, deckB, mixer, videoMode = false }: { deckA
         </div>
       )}
 
-      <div className="px-2 border-t-2 border-border pt-2 relative before:absolute before:left-1/2 before:-translate-x-1/2 before:-top-4 before:h-4 before:w-px before:bg-border">
+      <div className="shrink-0 px-2 border-t-2 border-border pt-2 relative before:absolute before:left-1/2 before:-translate-x-1/2 before:-top-4 before:h-4 before:w-px before:bg-border">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
             <Crossfader value={mixer.lastCross} onChange={(v) => mixer.setCrossfade(v)} cut={djs.xfCut} />
@@ -152,7 +153,7 @@ export function MixerView({ deckA, deckB }: { deckA: Deck; deckB: Deck }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="mixer-overview flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex flex-1 min-h-0 items-center justify-center gap-1 px-1">
         <ChannelStrip id="A" accent="var(--foreground)" filter={filter.A} eq={knobs.A}
           onFilter={(v) => { setFilter((f) => ({ ...f, A: v })); deckA.setFilter(v); }}
@@ -163,14 +164,14 @@ export function MixerView({ deckA, deckB }: { deckA: Deck; deckB: Deck }) {
           onBand={(band, v) => setBand("B", deckB, band, v)} />
       </div>
       <div className="flex justify-center pb-1">
-        <button
+        <Button variant="ghost"
           onClick={toggleEq}
           aria-label="EQ on/off"
           className={`grid size-10 place-items-center rounded-full text-[10px] font-bold tracking-widest ${eqOn ? "dj-glass-on text-primary" : "dj-glass text-muted-foreground"}`}
           style={eqOn ? { boxShadow: "0 0 12px rgba(80,160,255,0.35), var(--glass-shadow)" } : undefined}
         >
           EQ
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -187,12 +188,12 @@ function ChannelStrip({
   onBand: (band: (typeof EQ_BANDS)[number], v: number) => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 max-w-[110px] flex-col items-center justify-between gap-1 py-1 h-full max-h-64">
+    <div className="mixer-channel flex min-w-0 flex-1 max-w-[110px] flex-col items-center justify-evenly gap-0 h-full max-h-72">
       <div className="text-[9px] font-bold uppercase text-muted-foreground">CH <span style={{ color: accent }}>{id}</span></div>
-      <Knob value={filter} min={-1} max={1} size={30} label="FILTER" color={accent} showTicks={false} onChange={onFilter} />
-      <Knob value={eq[0]} min={-24} max={24} size={28} label="HI" color={accent} showTicks={false} onChange={(v) => onBand("high", v)} />
-      <Knob value={eq[1]} min={-24} max={24} size={28} label="MID" color={accent} showTicks={false} onChange={(v) => onBand("mid", v)} />
-      <Knob value={eq[2]} min={-24} max={24} size={28} label="LOW" color={accent} showTicks={false} onChange={(v) => onBand("low", v)} />
+      <Knob compact value={filter} min={-1} max={1} size={54} label="FILTER" color={accent} showTicks={false} onChange={onFilter} />
+      <Knob compact value={eq[0]} min={-24} max={24} size={42} label="HIGH" color={accent} showTicks={false} onChange={(v) => onBand("high", v)} />
+      <Knob compact value={eq[1]} min={-24} max={24} size={42} label="MID" color={accent} showTicks={false} onChange={(v) => onBand("mid", v)} />
+      <Knob compact value={eq[2]} min={-24} max={24} size={42} label="LOW" color={accent} showTicks={false} onChange={(v) => onBand("low", v)} />
     </div>
   );
 }
