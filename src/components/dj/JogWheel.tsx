@@ -128,17 +128,15 @@ export function JogWheel({ deck, size, accent }: Props) {
       cum = 0;
       const cfg = (globalThis as { __djScratch?: { vinylMode?: boolean } }).__djScratch;
       if (cfg?.vinylMode === false && deck.playing) { last.current.scratching = false; return; }
-      deck.scratchStart();
       startPos = deck.currentTime;
+      deck.scratchStart();
       deck.scratchTo(startPos, 0);
-      ab.x = startPos; ab.v = 0;
       startLoop();
     };
     // Frame-clocked scratch (same model as the waveform): pointer events only
     // accumulate platter angle; one position/velocity update is sent per
     // display frame, so uneven touch-event timing never reaches the audio.
     let raf = 0;
-    const ab = { x: 0, v: 0 };
     let lastCum = 0;
     let lastTick = 0;
     let rotStart = 0;
@@ -153,15 +151,10 @@ export function JogWheel({ deck, size, accent }: Props) {
       let v = Math.max(-16, Math.min(16, dSec / dt));
       if (Math.abs(v) < 0.015) v = 0;
       vel.current = v;
-      // Mixxx-style alpha-beta filter: smooths jittery touch samples into a
-      // steady platter position + velocity, so the audio follows the hand.
+      // The audio servo is the only smoothing stage. A second predictive
+      // filter here overshoots reversals and scratches beyond the hand.
       const meas = startPos + angleToSeconds(cum, sens());
-      const pred = ab.x + ab.v * dt;
-      const r = meas - pred;
-       ab.x = pred + 0.85 * r;
-       ab.v = Math.max(-16, Math.min(16, ab.v + (0.3 * r) / dt));
-      if (Math.abs(ab.v) < 0.015 && v === 0) ab.v = 0;
-      deck.scratchTo(ab.x, ab.v);
+      deck.scratchTo(meas, v);
       rotRef.current = (((rotStart + (cum * 180) / Math.PI) % 360) + 360) % 360;
     };
     const startLoop = () => {
@@ -203,6 +196,10 @@ export function JogWheel({ deck, size, accent }: Props) {
     const up = (e: PointerEvent) => {
       if (e.pointerId !== pointerId) return;
       const was = last.current.scratching;
+      if (was) {
+        accumulate(e.clientX, e.clientY);
+        deck.scratchTo(startPos + angleToSeconds(cum, sens()), vel.current);
+      }
       last.current.scratching = false;
       pointerId = -1;
       stopLoop();

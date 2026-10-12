@@ -1212,6 +1212,8 @@ export class Deck {
   endScratch() {
     if (!this.scratching) return;
     this.releaseToken++;
+    const livePosition = this.scratchPlayer?.position;
+    if (!isNative() && livePosition != null) this.scratchPos = Math.max(0, Math.min(this.duration, livePosition));
     this.scratchPlayer?.stop();
     if (isNative()) native.pause(this.id);
     this.scratchRate = 0;
