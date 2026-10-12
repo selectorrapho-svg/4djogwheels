@@ -158,7 +158,7 @@ export function MixerView({ deckA, deckB }: { deckA: Deck; deckB: Deck }) {
         <ChannelStrip id="A" accent="var(--foreground)" filter={filter.A} eq={knobs.A}
           onFilter={(v) => { setFilter((f) => ({ ...f, A: v })); deckA.setFilter(v); }}
           onBand={(band, v) => setBand("A", deckA, band, v)} />
-        <div className="flex h-full max-h-56 items-center gap-1 py-2"><div className="flex flex-col items-center gap-2"><span className="text-[9px] text-muted-foreground">A</span><Fader height={110} width={26} value={deckA.volume} onChange={v => deckA.setVolume(v)} knobColor="var(--foreground)" /></div><LevelMeter deck={deckA} label="A" /><LevelMeter deck={deckB} label="B" /><div className="flex flex-col items-center gap-2"><span className="text-[9px] text-muted-foreground">B</span><Fader height={110} width={26} value={deckB.volume} onChange={v => deckB.setVolume(v)} knobColor="var(--foreground)" /></div></div>
+        <div className="flex h-full max-h-56 items-center gap-1 py-2"><div className="flex flex-col items-center gap-2"><Fader height={110} width={26} value={deckA.volume} onChange={v => deckA.setVolume(v)} knobColor="var(--foreground)" /></div><LevelMeter deck={deckA} label="A" /><LevelMeter deck={deckB} label="B" /><div className="flex flex-col items-center gap-2"><Fader height={110} width={26} value={deckB.volume} onChange={v => deckB.setVolume(v)} knobColor="var(--foreground)" /></div></div>
         <ChannelStrip id="B" accent="var(--foreground)" filter={filter.B} eq={knobs.B}
           onFilter={(v) => { setFilter((f) => ({ ...f, B: v })); deckB.setFilter(v); }}
           onBand={(band, v) => setBand("B", deckB, band, v)} />
@@ -189,7 +189,6 @@ function ChannelStrip({
 }) {
   return (
     <div className="mixer-channel flex min-w-0 flex-1 max-w-[110px] flex-col items-center justify-evenly gap-0 h-full max-h-72">
-      <div className="text-[9px] font-bold uppercase text-muted-foreground">CH <span style={{ color: accent }}>{id}</span></div>
       <Knob compact value={filter} min={-1} max={1} size={54} label="FILTER" color={accent} showTicks={false} onChange={onFilter} />
       <Knob compact value={eq[0]} min={-24} max={24} size={42} label="HIGH" color={accent} showTicks={false} onChange={(v) => onBand("high", v)} />
       <Knob compact value={eq[1]} min={-24} max={24} size={42} label="MID" color={accent} showTicks={false} onChange={(v) => onBand("mid", v)} />
