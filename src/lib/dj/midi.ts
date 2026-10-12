@@ -60,8 +60,8 @@ function vendorOf(name: string): Vendor {
 
 function hotCue(deck: Deck, i: number) {
   const cue = deck.hotCues[i];
-  if (cue) deck.seek(cue.time);
-  else deck.hotCues[i] = { index: i, time: deck.currentTime };
+  if (cue) deck.triggerHotCue(i);
+  else deck.setHotCue(i);
 }
 
 function jog(deck: Deck, key: string, value: number, scale: number) {
