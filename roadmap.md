@@ -1,5 +1,11 @@
 # Task roadmap
 
+## Current full-spectrum and scratch regression
+- [ ] Repair full-spectrum colors at every zoom without changing zigzag geometry.
+- [ ] Repair position-locked scratch response and test signal continuity.
+- [ ] Review Mixxx native implementation as reference; preserve the browser runtime.
+- [ ] Verify grid-snapped hot cues and sync behavior with regression tests and loaded audio.
+
 ## Current waveform palette restoration
 - [x] Copy only the original full-spectrum RGB colors from the specified previous project; retain zigzag geometry and controls.
 - [x] Verify shared waveform rendering and existing stem/audio regressions.
