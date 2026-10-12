@@ -18,15 +18,15 @@ describe("stem-aware waveform", () => {
   });
   it("retains green vocals and cyan highs beneath stronger red bass", () => {
     const bass = { ...peaks, sub: new Float32Array([1]), bass: new Float32Array([1]), lowMid: new Float32Array([0]), mid: new Float32Array([0.25]), presence: new Float32Array([0.25]), high: new Float32Array([0.25]) };
-    const color = spectrumColor(bass, stemsOn(stems));
-    const muted = spectrumColor(bass, stemsOn({ ...stems, vocals: { on: false }, other: { on: false } }));
+    const color = spectrumColor(bass, stemsOn(stems), 0);
+    const muted = spectrumColor(bass, stemsOn({ ...stems, vocals: { on: false }, other: { on: false } }), 0);
     expect(color[1]).toBeGreaterThan(muted[1] + 30);
     expect(color[2]).toBeGreaterThan(muted[2] + 30);
   });
   it("renders isolated vocals green and presence cyan", () => {
     const silent = Object.fromEntries(Object.keys(peaks).map(key => [key, new Float32Array([0])])) as typeof peaks;
-    const vocal = spectrumColor({ ...silent, mid: new Float32Array([1]) }, stemsOn(stems));
-    const cyan = spectrumColor({ ...silent, presence: new Float32Array([1]) }, stemsOn(stems));
+    const vocal = spectrumColor({ ...silent, mid: new Float32Array([1]) }, stemsOn(stems), 0);
+    const cyan = spectrumColor({ ...silent, presence: new Float32Array([1]) }, stemsOn(stems), 0);
     expect(vocal).toEqual([43, 255, 98]);
     expect(cyan).toEqual([0, 255, 244]);
   });
