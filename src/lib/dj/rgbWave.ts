@@ -1,10 +1,9 @@
 import type { BandedPeaks } from "./engine";
-import { BAND_STEM } from "./wavedraw";
+import { BAND_STEM, RGB_BANDS } from "./wavedraw";
 
-// Full-spectrum RGB waveform (algorithm modelled on the classic 3-band RGB
-// renderer used by pro DJ software): low → red, mid → green, high → blue.
-// Each bin's colour is normalised so the dominant band reaches full
-// brightness, and its height is the combined band magnitude.
+// Original six-band spectrum palette, shared with the legacy envelopes.
+// Colour follows the strongest scaled active band; waveform height still
+// uses the existing combined magnitude, preserving the current geometry.
 //
 // Speed: the whole track is rendered ONCE into an offscreen strip, then each
 // animation frame just blits the visible slice with drawImage (GPU-scaled).
@@ -19,6 +18,25 @@ export interface RgbStrip {
 
 const STRIP_AMP = 256; // amplitude resolution (pixels across the strip)
 const MAX_BINS = 16000;
+
+const SPECTRUM = RGB_BANDS.map(([band, color, scale]) => ({
+  band,
+  scale,
+  rgb: (color.match(/\d+/g) ?? []).map(Number),
+}));
+
+function spectrumColor(peaks: BandedPeaks, stems: StemsOn, index: number) {
+  let strongest = 0;
+  let color = SPECTRUM[0].rgb;
+  for (const entry of SPECTRUM) {
+    const energy = peaks[entry.band][index] * Number(stems[BAND_STEM[entry.band]]) * entry.scale;
+    if (energy > strongest) {
+      strongest = energy;
+      color = entry.rgb;
+    }
+  }
+  return color;
+}
 
 export function rgbColumns(peaks: BandedPeaks, stems: StemsOn) {
   const level = (k: keyof BandedPeaks) => k === "overall" ? 1 : Number(stems[BAND_STEM[k as string]]);
@@ -104,9 +122,8 @@ export function buildRgbStrip(peaks: BandedPeaks, stems: StemsOn, axis: "y" | "x
       }
       continue;
     }
-    const mx = Math.max(l, m, h, 1e-6);
-    // djay/Serato palette: kicks & bass red, vocals green, highs cyan.
-    let r = (l / mx) * 255, g = (Math.max(m, h * 0.85) / mx) * 255, bl = (h / mx) * 255;
+    // Use the original project's full six-colour frequency spectrum.
+    let [r, g, bl] = spectrumColor(peaks, stems, i);
     if (style === "blocks") {
       // Dominant band picks a fixed pro-DJ colour instead of a blend.
       const c = l >= m && l >= h ? BLOCK.low : m >= h ? BLOCK.mid : BLOCK.high;
@@ -165,12 +182,12 @@ export function drawZigzag(
   while (bi <= b1) {
     const i = Math.floor(bi);
     const l = low[i], m = mid[i], h = high[i];
-    const mx = Math.max(l, m, h, 1e-6);
     const amp = Math.min(1, Math.sqrt(l * l + m * m + h * h) / maxAll);
     const along = ((bi / binsPerSec) - t0) * pxPerSec;
     const a = amp * half;
     // zigzag: alternate between the previous and current amplitude each bin
-    ctx.strokeStyle = `rgb(${Math.round((l / mx) * 255)},${Math.round((Math.max(m, h * 0.85) / mx) * 255)},${Math.round((h / mx) * 255)})`;
+    const [r, g, bl] = spectrumColor(peaks, stems, i);
+    ctx.strokeStyle = `rgb(${r},${g},${bl})`;
     ctx.beginPath();
     if (axis === "y") {
       ctx.moveTo(cx - prevA, along);
