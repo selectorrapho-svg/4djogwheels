@@ -20,6 +20,7 @@
 - Keep landscape side video previews independently toggled inside DeckPanel and the master compositor mounted in CenterColumn, so hiding a preview never interrupts mixed output.
 - Treat Mixxx as an algorithmic reference only; do not import its native GPL source into the web application without an explicit licensing and native integration decision.
 - Render the full-spectrum RGB waveform from a once-per-track offscreen strip (src/lib/dj/rgbWave.ts) and blit visible slices per frame, because per-frame path drawing is too slow on phones.
+- Share frequency palette definitions between legacy envelopes, cached RGB strips and zoomed zigzags, because every waveform view must use the same colors without changing its geometry.
 - Keep sync tempo lock separate from phase alignment and re-anchor the playback clock before rate changes, because feedback pitch changes and retroactive clock scaling cause hunting and stutters.
 - Define parameterized visual/transition families in `src/lib/dj/videoPresets.ts` and composite them on the existing master canvas, because output recording and hidden deck previews must share the same picture.
 - Use a shared searchable effect browser for deck slots and master video selections, because small native selects cannot fit the full library on phones.

@@ -1,13 +1,13 @@
 import { BandedPeaks } from "./engine";
 
 // Frequency-coded RGB: bass red, drums yellow, vocals green, treble blue.
-const RGB_BANDS: [keyof BandedPeaks, string, number][] = [
+export const RGB_BANDS: [keyof BandedPeaks, string, number][] = [
   ["sub", "rgb(240,48,56)", 1.5],
   ["bass", "rgb(255,88,65)", 1.35],
   ["lowMid", "rgb(255,214,40)", 1.2],
   ["mid", "rgb(40,235,90)", 1.12],
-  ["presence", "rgb(35,200,235)", 1.0],
-  ["high", "rgb(70,230,240)", 0.95],
+  ["presence", "rgb(50,160,255)", 1.0],
+  ["high", "rgb(85,100,255)", 0.95],
 ];
 
 export const WAVE_COLORS: { key: string; label: string; rgb: [number, number, number] | null }[] = [
