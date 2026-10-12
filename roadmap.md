@@ -6,6 +6,10 @@
 - [ ] Review Mixxx native implementation as reference; preserve the browser runtime.
 - [ ] Verify grid-snapped hot cues and sync behavior with regression tests and loaded audio.
 
+## AI track structure and cue recommendations
+- [ ] Add in-app audio analysis using AI Gateway with structure and recommended mixing cue points.
+- [ ] Verify analysis and applying suggested cues; report any external service blocker.
+
 ## Current waveform palette restoration
 - [x] Copy only the original full-spectrum RGB colors from the specified previous project; retain zigzag geometry and controls.
 - [x] Verify shared waveform rendering and existing stem/audio regressions.
