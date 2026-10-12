@@ -138,7 +138,10 @@ if (typeof window !== "undefined") {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const saved = JSON.parse(raw);
-      current = { ...DEFAULT, ...saved, jogStyle: normalizeJogStyle(saved.jogStyle) };
+      // Restore full-spectrum RGB waveforms: legacy single-colour choices
+      // (red, blue, …) painted the whole waveform one colour.
+      const waveColor = ["rgb3", "all", "zigzag", "beat", "bars"].includes(saved.waveColor) ? saved.waveColor : "rgb3";
+      current = { ...DEFAULT, ...saved, waveColor, jogStyle: normalizeJogStyle(saved.jogStyle) };
     }
   } catch {}
   (globalThis as { __djWaveColor?: string; __djBrake?: boolean }).__djWaveColor = current.waveColor;
