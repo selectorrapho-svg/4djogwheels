@@ -4,7 +4,8 @@ import { stemBands, smoothAt, BAND_STEM } from "@/lib/dj/wavedraw";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDjSettings } from "@/hooks/useDjSettings";
-import { buildRgbStrip, drawRgbStrip, drawZigzag, isZigzag, stemsKey, stemsOn, waveStyle, type RgbStrip } from "@/lib/dj/rgbWave";
+import { BeatGridEditor, useGridDrag } from "./BeatGridEditor";
+import { buildRgbStrip, drawRgbStrip, drawZigzag, zoomedZigzag, stemsKey, stemsOn, waveStyle, type RgbStrip } from "@/lib/dj/rgbWave";
 
 function makeStrip(axis: "x" | "y") {
   const ref = { strip: null as RgbStrip | null, key: "", peaks: null as BandedPeaks | null };
@@ -34,6 +35,7 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
   const peaksRef = useRef<BandedPeaks | null>(null);
   const rafRef = useRef(0);
   const [zoom, setZoom] = useState(1);
+  const [editingGrid, setEditingGrid] = useState(false);
   const [settings] = useDjSettings();
   const effectiveZoom = zoom * settings.waveZoom;
 
@@ -86,14 +88,13 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
 
       ctx.globalCompositeOperation = "source-over";
       const style = waveStyle();
-      if (style && isZigzag() && pxPerSec > 260) {
-        drawZigzag(ctx, peaks, stemsOn(deck.stems, deck.stemLevels), dur, t, pxPerSec, W, W / 2, 0, H, "x");
-      } else if (style) {
+      if (style || zoomedZigzag(effectiveZoom)) {
         const strip = getStrip(peaks, deck);
         if (strip) for (let lane = 0; lane < settings.waveTracks; lane++) {
           const on = settings.waveTracks === 1 ? stemsOn(deck.stems, deck.stemLevels) : { bass: lane === 0 && deck.stems.bass.on ? deck.stemLevels.bass : 0, drums: lane === 0 && deck.stems.drums.on ? deck.stemLevels.drums : 0, vocals: lane === 1 && deck.stems.vocals.on ? deck.stemLevels.vocals : 0, other: (settings.waveTracks === 2 ? lane === 1 : lane === 2) && deck.stems.other.on ? deck.stemLevels.other : 0 };
           const laneStrip = settings.waveTracks === 1 ? strip : getLaneStrip(lane, peaks, on);
-          if (laneStrip) drawRgbStrip(ctx, laneStrip, dur, t, pxPerSec, W, W / 2, lane * H / settings.waveTracks, H / settings.waveTracks);
+          if (zoomedZigzag(effectiveZoom)) drawZigzag(ctx, peaks, on, dur, t, pxPerSec, W, W / 2, lane * H / settings.waveTracks, H / settings.waveTracks, "x");
+          else if (laneStrip) drawRgbStrip(ctx, laneStrip, dur, t, pxPerSec, W, W / 2, lane * H / settings.waveTracks, H / settings.waveTracks);
         }
       }
       else for (const [key, col, scale] of stemBands()) {
@@ -127,13 +128,14 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
       // beat grid
       if (deck.bpm && deck.bpm > 40) {
         const secPerBeat = 60 / deck.bpm;
-        const firstBeat = Math.floor((t - secondsVisible / 2) / secPerBeat);
-        const lastBeat = Math.ceil((t + secondsVisible / 2) / secPerBeat);
+        const firstBeat = Math.floor((t - secondsVisible / 2 - deck.firstBeat) / secPerBeat);
+        const lastBeat = Math.ceil((t + secondsVisible / 2 - deck.firstBeat) / secPerBeat);
         for (let bi = firstBeat; bi <= lastBeat; bi++) {
-          const bx = W / 2 + (bi * secPerBeat - t) * pxPerSec;
+          const bx = W / 2 + (deck.firstBeat + bi * secPerBeat - t) * pxPerSec;
           const isDown = bi % 4 === 0;
           ctx.fillStyle = isDown ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.09)";
-          ctx.fillRect(bx, isDown ? 0 : H * 0.15, 1, isDown ? H : H * 0.7);
+          ctx.fillRect(bx, isDown ? 0 : H * 0.15, editingGrid ? 2 : 1, isDown ? H : H * 0.7);
+          if (editingGrid) { ctx.beginPath(); ctx.arc(bx, H / 2, 4 * dpr, 0, Math.PI * 2); ctx.fill(); }
           if (isDown) {
             ctx.fillStyle = "rgba(255,255,255,0.55)";
             ctx.font = `${10 * dpr}px ui-sans-serif`;
@@ -184,32 +186,36 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(rafRef.current); observer.disconnect(); };
-  }, [deck, color, index, effectiveZoom, settings.waveTracks, settings.waveColor]);
+  }, [deck, color, index, effectiveZoom, settings.waveTracks, settings.waveColor, editingGrid]);
 
   const scratch = useWaveScratch(deck, "x", () => {
     const w = canvasRef.current?.clientWidth ?? 1;
     return w / (8 / effectiveZoom);
   });
 
+  const gridDrag = useGridDrag(deck, "x", () => (canvasRef.current?.clientWidth ?? 1) / (8 / effectiveZoom));
+
   return (
-    <div className={`relative w-full h-full bg-background ${settings.waveHighContrast ? "wave-high-contrast" : ""}`} style={{ touchAction: "none" }} {...(settings.waveScratch ? scratch : {})}>
+    <div className={`relative w-full h-full bg-background ${settings.waveHighContrast ? "wave-high-contrast" : ""}`} style={{ touchAction: "none" }} {...(editingGrid ? gridDrag : settings.waveScratch ? scratch : {})}>
       <canvas ref={canvasRef} className="w-full h-full block"  />
 
       <div className="absolute right-1 top-1 flex gap-1">
         <Button variant="ghost"
           onPointerDown={event => event.stopPropagation()}
-          onClick={() => setZoom((z) => Math.min(4, z * 1.4))}
+          aria-label={`Zoom in deck ${deck.id}`} onClick={() => setZoom((z) => Math.min(16, z * 1.4))}
           className="dj-glass size-6 p-0 rounded-md text-muted-foreground"
         >
           <ZoomIn className="w-3 h-3" />
         </Button>
         <Button variant="ghost"
           onPointerDown={event => event.stopPropagation()}
-          onClick={() => setZoom((z) => Math.max(0.25, z / 1.4))}
+          aria-label={`Zoom out deck ${deck.id}`} onClick={() => setZoom((z) => Math.max(0.25, z / 1.4))}
           className="dj-glass size-6 p-0 rounded-md text-muted-foreground"
         >
           <ZoomOut className="w-3 h-3" />
         </Button>
+        <BeatGridEditor deck={deck} editing={editingGrid} onEditing={setEditingGrid} />
+        {editingGrid && <Button variant="default" className="h-6 px-1 text-[9px]" onPointerDown={e => e.stopPropagation()} onClick={() => setEditingGrid(false)}>Done</Button>}
       </div>
     </div>
   );
