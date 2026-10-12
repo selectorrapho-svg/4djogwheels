@@ -10,6 +10,7 @@ interface KnobProps {
   onDoubleClick?: () => void;
   color?: string;
   showTicks?: boolean;
+  compact?: boolean;
 }
 
 // Metallic mixer knob: brushed cap, ring of ticks, coloured value arc.
@@ -23,6 +24,7 @@ export function Knob({
   onDoubleClick,
   color = "var(--knob-accent)",
   showTicks = true,
+  compact = false,
 }: KnobProps) {
   const startY = useRef(0);
   const startV = useRef(0);
@@ -51,7 +53,7 @@ export function Knob({
   const r = size / 2;
 
   return (
-    <div className="flex flex-col items-center gap-1 select-none">
+    <div className={`flex flex-col items-center select-none ${compact ? "mixer-knob gap-0" : "gap-1"}`}>
       <div className="relative" style={{ width: size, height: size }}>
         {/* tick ring */}
         {showTicks && <svg width={size} height={size} className="absolute inset-0 pointer-events-none">
@@ -106,7 +108,7 @@ export function Knob({
           />
         </div>
       </div>
-      {label && <span className="text-[9px] tracking-wider text-muted-foreground uppercase">{label}</span>}
+      {label && <span className="text-[9px] leading-3 text-muted-foreground uppercase">{label}</span>}
     </div>
   );
 }
