@@ -1,5 +1,12 @@
 # Task roadmap
 
+## October 12 waveform, scratch and mixer corrections
+- [ ] Restore RGB and automatic zoomed zigzags across waveform lanes.
+- [ ] Fix jog position continuity and scratch ticking; run audio regressions.
+- [ ] Add paired thin square VU columns; enlarge filter/EQ controls and tighten labels.
+- [ ] Hide mixer overview in video and contain controls above crossfader.
+- [ ] Add editable beat-grid markers and BPM controls; verify both orientations.
+
 ## October 11 scratch and reference controls
 - [ ] Remove scratch ticking while keeping sharp, position-locked jog response.
 - [ ] Add accessible DNA editing and selection of the scratch starting point.
