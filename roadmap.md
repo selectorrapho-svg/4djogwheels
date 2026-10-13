@@ -1,5 +1,12 @@
 # Task roadmap
 
+## October 13 scratch and Studio upgrade
+- [ ] Improve hand-position scratch accuracy and test reversals, holds and release with loaded audio.
+- [ ] Research freely licensed scratch references without copying incompatible native code.
+- [ ] Remove mixer overview volume sliders; add blue value arcs and split portrait SET/cue controls; restyle shared faders.
+- [ ] Add Settings Studio/DAW workspace with working audio import, arrangement and playback controls.
+- [ ] Verify Studio and DJ controls in portrait and landscape; report Android/device-only limitations.
+
 ## Current full-spectrum and scratch regression
 - [ ] Repair full-spectrum colors at every zoom without changing zigzag geometry.
 - [ ] Repair position-locked scratch response and test signal continuity.
