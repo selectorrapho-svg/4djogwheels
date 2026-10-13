@@ -32,7 +32,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
     // 'pos'  = position servo: follow the platter's absolute position so the
     //          audio can never drift away from the hand (no velocity integration).
     this.mode = 'rate';
-    this.tPos = 0; this.tVel = 0; this.age = 0;
+    this.tPos = 0; this.tVel = 0; this.age = 0; this.lastT = 0; this.estVel = 0;
     this.motorTau = 0.0009;
     this.port.onmessage = (e) => {
       const d = e.data;
@@ -48,6 +48,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.rate = d.rate || 0;
         this.target = this.rate;
         this.tPos = this.pos; this.tVel = 0; this.age = 0;
+        this.lastT = 0; this.estVel = 0;
         this.mode = 'pos';
         this.on = true;
       } else if (d.type === 'rate') {
@@ -60,8 +61,22 @@ class ScratchProcessor extends AudioWorkletProcessor {
         }
       } else if (d.type === 'target') {
         // Absolute platter position (seconds) + hand velocity (sec/sec).
-        this.tPos = d.pos * this.sourceRate;
-        this.tVel = Number.isFinite(d.vel) ? Math.max(-24, Math.min(24, d.vel)) : 0;
+        const np = d.pos * this.sourceRate;
+        const hv = Number.isFinite(d.vel) ? Math.max(-24, Math.min(24, d.vel)) : 0;
+        const t = Number.isFinite(d.when) ? d.when : currentTime;
+        // Blend the UI's hand speed with a speed measured from successive
+        // absolute positions on the audio clock: jittery pointer timing can't
+        // make the pitch wobble, and position and speed always agree.
+        if (this.lastT > 0 && t - this.lastT > 0.002 && t - this.lastT < 0.05) {
+          const est = (np - this.tPos) / this.sourceRate / (t - this.lastT);
+          this.estVel += (Math.max(-24, Math.min(24, est)) - this.estVel) * 0.6;
+          this.tVel = hv * 0.5 + this.estVel * 0.5;
+          this.lastT = t;
+        } else {
+          if (!(this.lastT > 0) || t - this.lastT >= 0.05) { this.estVel = hv; this.lastT = t; }
+          this.tVel = hv;
+        }
+        this.tPos = np;
         this.age = Number.isFinite(d.when) ? Math.max(0, Math.min(0.02, currentTime - d.when)) * sampleRate : 0;
         this.mode = 'pos';
       } else if (d.type === 'motor') {
@@ -136,20 +151,24 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.mode = 'rate';
       }
       if (this.mode === 'pos') {
-        if (this.age < maxAge) {
-          const goal = this.tPos + this.tVel * this.age * ratio;
-          const flip = this.tVel * this.rate < 0;
-          const hard = flip || Math.abs(this.tVel - this.rate) > 0.3;
-          let desired = this.tVel + (goal - this.pos) / ratio * (hard ? servoHard : servoSoft);
-          if (desired > 24) desired = 24; else if (desired < -24) desired = -24;
-          this.rate += (desired - this.rate) * (hard ? kHard : kSoft);
-        } else {
-          // No fresh hand data: coast down smoothly instead of hard-stopping.
-          const heldGoal = this.tPos + this.tVel * maxAge * ratio;
-          const desired = Math.max(-24, Math.min(24, (heldGoal - this.pos) / ratio * servoSoft));
-          this.rate += (desired - this.rate) * kSoft;
-          if (Math.abs(this.rate) < 0.001) this.rate = 0;
-        }
+        // Continuous critically-damped servo: stiffness blends smoothly with
+        // the hand/platter speed mismatch, so there is no soft/hard switch
+        // chattering (which was audible as tiny ticks) yet hard cuts and
+        // direction flips still snap within ~1.5 ms.
+        const fresh = this.age < maxAge;
+        if (!fresh) this.tVel *= vDecay;
+        const a = fresh ? this.age : maxAge;
+        const goal = this.tPos + this.tVel * a * ratio;
+        let m = Math.abs(this.tVel - this.rate) / 0.6;
+        if (this.tVel * this.rate < 0) m = 1;
+        if (m > 1) m = 1;
+        m = m * m * (3 - 2 * m);
+        const servo = servoSoft + (servoHard - servoSoft) * m;
+        const kk = kSoft + (kHard - kSoft) * m;
+        let desired = this.tVel + (goal - this.pos) / ratio * servo;
+        if (desired > 24) desired = 24; else if (desired < -24) desired = -24;
+        this.rate += (desired - this.rate) * kk;
+        if (!fresh && Math.abs(this.rate) < 0.001 && Math.abs(goal - this.pos) < 1) this.rate = 0;
         this.age++;
       } else {
         this.rate += (this.target - this.rate) * k;
