@@ -32,7 +32,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
     // 'pos'  = position servo: follow the platter's absolute position so the
     //          audio can never drift away from the hand (no velocity integration).
     this.mode = 'rate';
-    this.tPos = 0; this.tVel = 0; this.age = 0; this.lastT = 0; this.estVel = 0;
+    this.tPos = 0; this.tVel = 0; this.age = 0; this.lastT = 0; this.lastP = 0; this.estVel = 0;
     this.motorTau = 0.0009;
     this.port.onmessage = (e) => {
       const d = e.data;
@@ -48,7 +48,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.rate = d.rate || 0;
         this.target = this.rate;
         this.tPos = this.pos; this.tVel = 0; this.age = 0;
-        this.lastT = 0; this.estVel = 0;
+        this.lastT = 0; this.lastP = this.pos; this.estVel = 0;
         this.mode = 'pos';
         this.on = true;
       } else if (d.type === 'rate') {
@@ -68,12 +68,12 @@ class ScratchProcessor extends AudioWorkletProcessor {
         // absolute positions on the audio clock: jittery pointer timing can't
         // make the pitch wobble, and position and speed always agree.
         if (this.lastT > 0 && t - this.lastT > 0.002 && t - this.lastT < 0.05) {
-          const est = (np - this.tPos) / this.sourceRate / (t - this.lastT);
+          const est = (np - this.lastP) / this.sourceRate / (t - this.lastT);
           this.estVel += (Math.max(-24, Math.min(24, est)) - this.estVel) * 0.6;
           this.tVel = hv * 0.5 + this.estVel * 0.5;
-          this.lastT = t;
+          this.lastT = t; this.lastP = np;
         } else {
-          if (!(this.lastT > 0) || t - this.lastT >= 0.05) { this.estVel = hv; this.lastT = t; }
+          if (!(this.lastT > 0) || t - this.lastT >= 0.05) { this.estVel = hv; this.lastT = t; this.lastP = np; }
           this.tVel = hv;
         }
         this.tPos = np;
