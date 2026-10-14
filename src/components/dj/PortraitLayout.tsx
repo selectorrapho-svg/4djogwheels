@@ -193,7 +193,10 @@ export function PortraitLayout({
         <SyncButton onClick={() => deckRight.toggleSync(deckLeft)} active={deckRight.syncLocked} bpm={deckRight.bpm * deckRight.rate} accent="#3bd2ff" width={58} height={32} />
       </div>
       <div className="grid grid-cols-[1fr_1fr] gap-2 px-2 h-10 shrink-0 border-t border-border">
-        {[deckLeft, deckRight].map((deck) => <button key={deck.id} onClick={() => deck.triggerCue()} onContextMenu={(e) => { e.preventDefault(); deck.setCue(); }} title="Cue — set while paused, restart while playing" aria-label={`Set or trigger cue deck ${deck.id}`} className="rounded-sm border border-border bg-secondary text-xs font-semibold">{deck.playing ? "CUE ↻" : "SET CUE"}</button>)}
+        {[deckLeft, deckRight].map((deck) => <div key={deck.id} className="grid grid-cols-[1fr_1.4fr] gap-1 py-1">
+          <button onClick={() => deck.setCue()} aria-label={`Set cue deck ${deck.id}`} className="rounded-md border border-border bg-background text-[11px] font-bold tracking-widest text-muted-foreground active:text-foreground">SET</button>
+          <button onClick={() => deck.triggerCue()} aria-label={`Cue deck ${deck.id}`} className="rounded-md border-2 text-[11px] font-bold tracking-widest" style={{ borderColor: "var(--control-blue, #2f8cff)", color: "var(--control-blue, #2f8cff)" }}>CUE ↻</button>
+        </div>)}
       </div>
       <div className="grid grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-2 px-3 h-[68px] shrink-0 border-t border-border bg-secondary">
         <button aria-label="Play or pause left deck" onClick={() => deckLeft.toggle()} className={`grid size-11 place-items-center rounded-full border border-border ${deckLeft.playing ? "text-primary" : "text-foreground"}`}><Play className="size-5" fill="currentColor" /></button>

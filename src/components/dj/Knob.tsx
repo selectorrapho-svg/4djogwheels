@@ -71,26 +71,45 @@ export function Knob({
                 y1={y1}
                 x2={x2}
                 y2={y2}
-                stroke={on ? color : "rgba(255,255,255,0.22)"}
+                stroke={on ? color : "var(--border)"}
                 strokeWidth={1.4}
                 strokeLinecap="round"
               />
             );
           })}
         </svg>}
+        {/* blue value arc around the outer ring — starts at centre for bipolar knobs */}
+        <svg width={size} height={size} className="absolute inset-0 pointer-events-none" aria-hidden>
+          {(() => {
+            const rr = r - 3;
+            const pt = (deg: number) => {
+              const a = (deg * Math.PI) / 180;
+              return `${r + Math.sin(a) * rr} ${r - Math.cos(a) * rr}`;
+            };
+            const bipolar = min < 0 && max > 0;
+            const from = bipolar ? -135 + ((0 - min) / range) * 270 : -135;
+            const a0 = Math.min(from, angle), a1 = Math.max(from, angle);
+            return (
+              <>
+                <path d={`M ${pt(-135)} A ${rr} ${rr} 0 1 1 ${pt(135)}`} fill="none" stroke="var(--knob-ring)" strokeWidth={compact ? 5 : 3} strokeLinecap="butt" />
+                {a1 - a0 > 0.5 && <path d={`M ${pt(a0)} A ${rr} ${rr} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${pt(a1)}`} fill="none" stroke="var(--muted-foreground)" strokeWidth={compact ? 5 : 3} strokeLinecap="butt" />}
+              </>
+            );
+          })()}
+        </svg>
         {/* cap */}
         <div
           className="absolute rounded-full"
           style={{
-            inset: 6,
+            inset: compact ? 8 : 6,
             background: "radial-gradient(circle at 50% 35%, var(--secondary), var(--background) 78%)",
-            border: "2px solid var(--muted-foreground)",
+            border: "1px solid var(--knob-ring)",
             boxShadow: "inset 0 1px 0 color-mix(in oklab, var(--foreground) 18%, transparent), 0 3px 8px color-mix(in oklab, var(--background) 80%, transparent)",
             touchAction: "none",
           }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
-          onDoubleClick={onDoubleClick}
+          onDoubleClick={() => { if (onDoubleClick) onDoubleClick(); else onChange(min < 0 && max > 0 ? 0 : min + range / 2); }}
         >
           <div
             className="absolute left-1/2"

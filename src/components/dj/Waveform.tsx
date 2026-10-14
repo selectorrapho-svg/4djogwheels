@@ -1,26 +1,26 @@
+import { WaveAnalysisStatus } from "./WaveAnalysisStatus";
 import { useEffect, useRef, useState } from "react";
-import { Deck, computeBandedPeaks, BandedPeaks } from "@/lib/dj/engine";
+import { Deck, BandedPeaks } from "@/lib/dj/engine";
 import { stemBands, smoothAt, BAND_STEM } from "@/lib/dj/wavedraw";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDjSettings } from "@/hooks/useDjSettings";
-import { BeatGridEditor, useGridDrag } from "./BeatGridEditor";
 import { useWaveScratch } from "@/lib/dj/useWaveScratch";
-import { buildRgbStrip, drawRgbStrip, drawZigzag, zoomedZigzag, stemsKey, stemsOn, waveStyle, type RgbStrip } from "@/lib/dj/rgbWave";
+import { buildRgbStrip, drawRgbStrip, drawZigzag, zoomedZigzag, stemsKey, stemsOn, type RgbStrip } from "@/lib/dj/rgbWave";
 
 function makeStrip(axis: "x" | "y") {
   const ref = { strip: null as RgbStrip | null, key: "", peaks: null as BandedPeaks | null };
   return (peaks: BandedPeaks, deck: Deck) => {
-    const style = waveStyle() ?? "rgb";
-    const k = style + ":" + stemsKey(deck.stems, deck.stemLevels) + ":" + peaks.overall.length;
+    const k = stemsKey(deck.stems as never) + ":" + peaks.overall.length;
     if (ref.key !== k || ref.peaks !== peaks || !ref.strip) {
-      ref.strip = buildRgbStrip(peaks, stemsOn(deck.stems, deck.stemLevels), axis, style);
+      ref.strip = buildRgbStrip(peaks, stemsOn(deck.stems as never), axis);
       ref.key = k;
       ref.peaks = peaks;
     }
     return ref.strip;
   };
 }
+const isRgb3 = () => ((globalThis as { __djWaveColor?: string }).__djWaveColor ?? "rgb3") === "rgb3";
 
 
 interface Props {
@@ -36,17 +36,10 @@ export function Waveform({ deck, side }: Props) {
   const peaksRef = useRef<BandedPeaks | null>(null);
   const rafRef = useRef(0);
   const [zoom, setZoom] = useState(1);
-  const [editingGrid, setEditingGrid] = useState(false);
   const [settings] = useDjSettings();
   const effectiveZoom = zoom * settings.waveZoom;
 
-  useEffect(() => {
-    if (!deck.buffer) {
-      peaksRef.current = null;
-      return;
-    }
-    peaksRef.current = computeBandedPeaks(deck.buffer, 16000);
-  }, [deck.buffer]);
+  peaksRef.current = deck.wavePeaks;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -85,30 +78,27 @@ export function Waveform({ deck, side }: Props) {
         const secsPerBin = dur / samples;
 
         ctx.globalCompositeOperation = "source-over";
-        const style = waveStyle();
-        // Zigzag style: crisp Serato-style spikes once zoomed in far enough.
-        if (style || zoomedZigzag(effectiveZoom)) {
-          const strip = getStrip(peaks, deck);
-          if (strip) {
+        const strip = isRgb3() ? getStrip(peaks, deck) : null;
+        if (strip) {
           for (let lane = 0; lane < settings.waveTracks; lane++) {
-            const laneStems = settings.waveTracks === 1 ? stemsOn(deck.stems, deck.stemLevels) : settings.waveTracks === 2 ? { bass: lane === 0 && deck.stems.bass.on ? deck.stemLevels.bass : 0, drums: lane === 0 && deck.stems.drums.on ? deck.stemLevels.drums : 0, vocals: lane === 1 && deck.stems.vocals.on ? deck.stemLevels.vocals : 0, other: lane === 1 && deck.stems.other.on ? deck.stemLevels.other : 0 } : { bass: lane === 0 && deck.stems.bass.on ? deck.stemLevels.bass : 0, drums: lane === 0 && deck.stems.drums.on ? deck.stemLevels.drums : 0, vocals: lane === 1 && deck.stems.vocals.on ? deck.stemLevels.vocals : 0, other: lane === 2 && deck.stems.other.on ? deck.stemLevels.other : 0 };
+            const laneStems = settings.waveTracks === 1 ? stemsOn(deck.stems) : settings.waveTracks === 2 ? { bass: lane === 0 && deck.stems.bass.on, drums: lane === 0 && deck.stems.drums.on, vocals: lane === 1 && deck.stems.vocals.on, other: lane === 1 && deck.stems.other.on } : { bass: lane === 0 && deck.stems.bass.on, drums: lane === 0 && deck.stems.drums.on, vocals: lane === 1 && deck.stems.vocals.on, other: lane === 2 && deck.stems.other.on };
             const laneStrip = settings.waveTracks === 1 ? strip : getLaneStrip(lane, peaks, laneStems);
             if (zoomedZigzag(effectiveZoom)) drawZigzag(ctx, peaks, laneStems, dur, t, pxPerSec, H, centerY, lane * W / settings.waveTracks, W / settings.waveTracks, "y");
             else if (laneStrip) drawRgbStrip(ctx, laneStrip, dur, t, pxPerSec, H, centerY, lane * W / settings.waveTracks, W / settings.waveTracks);
           }
-          }
-        } else for (const [key, col, scale] of stemBands()) {
+        }
+        else for (const [key, col, scale] of stemBands()) {
           if (!deck.stems[BAND_STEM[key as string]].on) continue;
           const arr = peaks[key] as Float32Array;
           ctx.beginPath();
           for (let y = 0; y <= H; y += step) {
             const timeAt = t + (y - centerY) / pxPerSec;
-            const v = smoothAt(arr, timeAt / secsPerBin) * deck.stemLevels[BAND_STEM[key as string]] * halfW * scale;
+            const v = smoothAt(arr, timeAt / secsPerBin, effectiveZoom > 1) * halfW * scale;
             ctx.lineTo(cx - v, y);
           }
           for (let y = H; y >= 0; y -= step) {
             const timeAt = t + (y - centerY) / pxPerSec;
-            const v = smoothAt(arr, timeAt / secsPerBin) * deck.stemLevels[BAND_STEM[key as string]] * halfW * scale;
+            const v = smoothAt(arr, timeAt / secsPerBin, effectiveZoom > 1) * halfW * scale;
             ctx.lineTo(cx + v, y);
           }
           ctx.closePath();
@@ -127,14 +117,13 @@ export function Waveform({ deck, side }: Props) {
       // beat grid
       if (deck.bpm && deck.bpm > 40 && dur > 0) {
         const secPerBeat = 60 / deck.bpm;
-        const firstBeat = Math.floor((t - secondsVisible / 2 - deck.firstBeat) / secPerBeat);
-        const lastBeat = Math.ceil((t + secondsVisible / 2 - deck.firstBeat) / secPerBeat);
+        const firstBeat = Math.floor((t - secondsVisible / 2) / secPerBeat);
+        const lastBeat = Math.ceil((t + secondsVisible / 2) / secPerBeat);
         for (let bi = firstBeat; bi <= lastBeat; bi++) {
-          const y = centerY + (deck.firstBeat + bi * secPerBeat - t) * pxPerSec;
+          const y = centerY + (bi * secPerBeat - t) * pxPerSec;
           const isDown = bi % 4 === 0;
           ctx.fillStyle = isDown ? "rgba(255,255,255,0.32)" : "rgba(255,255,255,0.09)";
-          ctx.fillRect(0, y, W, editingGrid ? 2 : 1);
-          if (editingGrid) { ctx.beginPath(); ctx.arc(W / 2, y, 4 * dpr, 0, Math.PI * 2); ctx.fill(); }
+          ctx.fillRect(0, y, W, 1);
           if (isDown) {
             ctx.fillStyle = "rgba(255,255,255,0.55)";
             ctx.font = `${9 * dpr}px ui-sans-serif`;
@@ -183,8 +172,7 @@ export function Waveform({ deck, side }: Props) {
     const getLaneStrip = (lane: number, peaks: BandedPeaks, on: ReturnType<typeof stemsOn>) => {
       const key = JSON.stringify(on);
       let cached = lanes.get(lane);
-      const style = waveStyle() ?? "rgb";
-      if (!cached || cached.key !== style + key) { cached = { key: style + key, strip: buildRgbStrip(peaks, on, "y", style) }; lanes.set(lane, cached); }
+      if (!cached || cached.key !== key) { cached = { key, strip: buildRgbStrip(peaks, on, "y") }; lanes.set(lane, cached); }
       return cached.strip;
     };
     resize(); observer.observe(canvas);
@@ -196,23 +184,21 @@ export function Waveform({ deck, side }: Props) {
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(rafRef.current); observer.disconnect(); };
-  }, [deck, side, effectiveZoom, settings.waveTracks, settings.waveColor, editingGrid]);
+  }, [deck, side, effectiveZoom, settings.waveTracks, settings.waveColor]);
 
   const scratch = useWaveScratch(deck, "y", () => {
     const h = canvasRef.current?.clientHeight ?? 1;
     return h / (8 / effectiveZoom);
   });
 
-  const gridDrag = useGridDrag(deck, "y", () => (canvasRef.current?.clientHeight ?? 1) / (8 / effectiveZoom));
-
   return (
-    <div className={`relative w-full h-full overflow-hidden bg-background ${settings.waveHighContrast ? "wave-high-contrast" : ""}`} style={{ touchAction: "none" }} {...(editingGrid ? gridDrag : settings.waveScratch ? scratch : {})}>
-      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block"  />
+    <div className={`relative w-full h-full overflow-hidden bg-background ${settings.waveHighContrast ? "wave-high-contrast" : ""}`} style={{ touchAction: "none" }} {...(settings.waveScratch ? scratch : {})}>
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block" /><WaveAnalysisStatus deck={deck} />
 
       <div className={`absolute ${side === "left" ? "right-1" : "left-1"} top-1 flex flex-col gap-1`}>
         <Button variant="ghost"
           onPointerDown={event => event.stopPropagation()}
-          aria-label={`Zoom in deck ${deck.id}`} onClick={() => setZoom((z) => Math.min(16, z * 1.4))}
+          onClick={() => setZoom((z) => Math.min(4, z * 1.4))}
           className="dj-glass size-6 p-0 rounded-md text-muted-foreground hover:text-foreground"
           title="Zoom in"
         >
@@ -220,39 +206,32 @@ export function Waveform({ deck, side }: Props) {
         </Button>
         <Button variant="ghost"
           onPointerDown={event => event.stopPropagation()}
-          aria-label={`Zoom out deck ${deck.id}`} onClick={() => setZoom((z) => Math.max(0.25, z / 1.4))}
+          onClick={() => setZoom((z) => Math.max(0.25, z / 1.4))}
           className="dj-glass size-6 p-0 rounded-md text-muted-foreground hover:text-foreground"
           title="Zoom out"
         >
           <ZoomOut className="w-3 h-3" />
         </Button>
-        <BeatGridEditor deck={deck} editing={editingGrid} onEditing={setEditingGrid} />
-        {editingGrid && <Button variant="default" className="h-6 px-1 text-[9px]" onPointerDown={e => e.stopPropagation()} onClick={() => setEditingGrid(false)}>Done</Button>}
       </div>
     </div>
   );
 }
 
 // Compact horizontal track-overview waveform for the top bar (RGB stems).
+const getOverviewStrip = makeStrip("x");
+
 export function TrackOverview({ deck, accent }: { deck: Deck; accent: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const peaksRef = useRef<BandedPeaks | null>(null);
   const rafRef = useRef(0);
 
-  useEffect(() => {
-    if (!deck.buffer) {
-      peaksRef.current = null;
-      return;
-    }
-    peaksRef.current = computeBandedPeaks(deck.buffer, 800);
-  }, [deck.buffer]);
+  peaksRef.current = deck.wavePeaks;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const getStrip = makeStrip("x");
     const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     const draw = () => {
       const w = canvas.clientWidth * dpr;
@@ -269,8 +248,8 @@ export function TrackOverview({ deck, accent }: { deck: Deck; accent: string }) 
         ctx.fillRect(0, cy - 1, w, 2);
         return;
       }
-      const strip = getStrip(peaks, deck);
-      if (strip && deck.duration > 0) drawRgbStrip(ctx, strip, deck.duration, deck.duration / 2, w / deck.duration, w, w / 2, 0, h);
+      const strip = getOverviewStrip(peaks, deck);
+      if (strip) ctx.drawImage(strip.canvas, 0, 0, strip.canvas.width, strip.canvas.height, 0, 0, w, h);
       const p = deck.duration ? deck.currentTime / deck.duration : 0;
       ctx.fillStyle = accent;
       ctx.fillRect(p * w - 1, 0, 2, h);
@@ -291,5 +270,5 @@ export function TrackOverview({ deck, accent }: { deck: Deck; accent: string }) 
     return () => cancelAnimationFrame(rafRef.current);
   }, [deck, accent]);
 
-  return <canvas ref={canvasRef} role="slider" aria-label={`Track position deck ${deck.id}`} aria-valuemin={0} aria-valuemax={deck.duration} aria-valuenow={deck.currentTime} className="w-full h-full block touch-none" onPointerDown={e => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); const box = e.currentTarget.getBoundingClientRect(); deck.seek((e.clientX - box.left) / box.width * deck.duration); }} onPointerMove={e => { if (!e.currentTarget.hasPointerCapture(e.pointerId)) return; const box = e.currentTarget.getBoundingClientRect(); deck.seek((e.clientX - box.left) / box.width * deck.duration); }} />;
+  return <canvas ref={canvasRef} className="w-full h-full block" />;
 }

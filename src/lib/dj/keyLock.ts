@@ -1,5 +1,8 @@
-import processorUrl from "@soundtouchjs/audio-worklet/processor?url";
 import type { SoundTouchNode } from "@soundtouchjs/audio-worklet";
+
+// Served from public/ — importing the package's hidden .dist path with ?url
+// is denied by the dev server.
+const processorUrl = "/worklets/soundtouch-processor.js";
 
 const registrations = new WeakMap<AudioContext, Promise<void>>();
 /** Source-rate compensation: original pitch when locked, vinyl pitch otherwise. */

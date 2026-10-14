@@ -37,6 +37,6 @@ export function Crossfader({ onChange, value: externalValue, cut = false }: { on
     onLostPointerCapture={release}
     onKeyDown={e => { if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) { e.preventDefault(); const v = e.key === "Home" ? 0 : e.key === "End" ? 1 : Math.max(0, Math.min(1, value + (e.key === "ArrowRight" ? 0.05 : -0.05))); setValue(v); onChange(v); } }}
     onDoubleClick={() => { setValue(0.5); onChange(0.5); }}>
-    <div className="crossfader-rail" /><span className="crossfader-cap" style={{ left: `calc(14px + (100% - 28px) * ${value})` }}><i /></span>
+    <div className="crossfader-rail" /><span className="crossfader-cap" style={{ left: `calc(14px + (100% - 28px) * ${value})` }} />
   </div>;
 }

@@ -34,6 +34,10 @@ class ScratchProcessor extends AudioWorkletProcessor {
     this.mode = 'rate';
     this.tPos = 0; this.tVel = 0; this.age = 0; this.lastT = 0; this.lastP = 0; this.estVel = 0;
     this.motorTau = 0.0009;
+    // 'path' = time-stamped hand trajectory replayed with a small fixed delay.
+    // The audio position is interpolated between real touch samples, so it
+    // follows the hand exactly (no prediction, no overshoot, no jumps).
+    this.path = []; this.delay = 0.016; this.s1 = 0; this.s2 = 0;
     this.port.onmessage = (e) => {
       const d = e.data;
       if (d.type === 'buffer') {
@@ -49,7 +53,8 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.target = this.rate;
         this.tPos = this.pos; this.tVel = 0; this.age = 0;
         this.lastT = 0; this.lastP = this.pos; this.estVel = 0;
-        this.mode = 'pos';
+        this.mode = 'pos'; this.path = [];
+        this.s1 = this.pos; this.s2 = this.pos;
         this.on = true;
       } else if (d.type === 'rate') {
         if (Number.isFinite(d.when) && d.when > currentTime) {
@@ -79,11 +84,35 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.tPos = np;
         this.age = Number.isFinite(d.when) ? Math.max(0, Math.min(0.02, currentTime - d.when)) * sampleRate : 0;
         this.mode = 'pos';
+      } else if (d.type === 'point') {
+        const np = Math.max(0, d.pos * this.sourceRate);
+        const when = Number.isFinite(d.when) ? d.when : currentTime;
+        // Adaptive replay delay: measure how late touch points really arrive
+        // (busy phones, Bluetooth). If they arrive after their replay time the
+        // path stalls and the sound chops into "bad cuts", so keep the delay
+        // just above the worst recent lateness.
+        const late = Math.max(0, currentTime - when);
+        this.late = Math.max(late, (this.late || 0) * 0.985);
+        const want = Math.max(0.012, Math.min(0.045, this.late + 0.008));
+        this.delay = want > this.delay ? want : this.delay + (want - this.delay) * 0.02;
+        if (this.mode !== 'path' || this.path.length === 0) {
+          this.path = [{ t: Math.min(when, currentTime) - 0.016, p: this.pos }];
+          this.s1 = this.pos; this.s2 = this.pos;
+          this.mode = 'path';
+        }
+        const last = this.path[this.path.length - 1];
+        // Hand was resting: hold still until just before the new movement.
+        if (when - last.t > 0.05) this.path.push({ t: when - 0.016, p: last.p });
+        const t = Math.max(when, this.path[this.path.length - 1].t + 0.0005);
+        this.path.push({ t, p: np });
+        if (this.path.length > 512) this.path.splice(0, this.path.length - 512);
       } else if (d.type === 'motor') {
         // Release: spin up/down to a speed with a turntable-style time constant.
         this.target = Number.isFinite(d.rate) ? d.rate : 0;
         this.motorTau = Math.max(0.0005, d.tau || 0.0009);
-        this.mode = 'rate';
+        // Free spin: the platter leaves the hand at the fling speed.
+        if (Number.isFinite(d.from)) this.rate = Math.max(-24, Math.min(24, d.from));
+        this.mode = 'rate'; this.path = [];
       } else if (d.type === 'pos') {
         this.pos = d.pos * this.sourceRate;
       } else if (d.type === 'stop') {
@@ -143,6 +172,10 @@ class ScratchProcessor extends AudioWorkletProcessor {
     const maxAge = 0.04 * sampleRate;             // extrapolate hand motion ≤40 ms
     const vDecay = Math.exp(-1 / (0.09 * sampleRate)); // gentle coast after that
     const gainK = 1 - Math.exp(-1 / (0.001 * sampleRate));
+    // Slower motion gate (4 ms) so passing through zero speed on a reversal
+    // fades instead of chopping the signal — the chop was the audible 'tik'.
+    const motionK = 1 - Math.exp(-1 / (0.004 * sampleRate));
+    const pathK = 1 - Math.exp(-1 / (0.0012 * sampleRate)); // smooths speed steps between touch samples (zipper/cut noise)
     const dcPole = Math.exp(-2 * Math.PI * 5 / sampleRate);
     for (let s = 0; s < len; s++) {
       while (this.events.length && this.events[0].frame <= currentFrame + s) {
@@ -150,7 +183,27 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.target = Number.isFinite(event.rate) ? event.rate : 0;
         this.mode = 'rate';
       }
-      if (this.mode === 'pos') {
+      let advanced = false;
+      if (this.mode === 'path' && this.path.length) {
+        const rt = (currentFrame + s) / sampleRate - this.delay;
+        const P = this.path;
+        while (P.length > 2 && P[1].t <= rt) P.shift();
+        const a = P[0], b = P[1];
+        let goal;
+        if (!b || rt <= a.t) goal = a.p;
+        else if (rt >= b.t) goal = b.p;
+        else goal = a.p + (b.p - a.p) * (rt - a.t) / (b.t - a.t);
+        // Two cascaded 0.7 ms poles round the corners between touch samples
+        // (C1-continuous speed) without audible lag: no zipper, no ticks.
+        this.s1 += (goal - this.s1) * pathK;
+        this.s2 += (this.s1 - this.s2) * pathK;
+        const np = this.s2;
+        let r = (np - this.pos) / ratio;
+        if (r > 24) r = 24; else if (r < -24) r = -24;
+        this.rate = r;
+        this.pos += r * ratio;
+        advanced = true;
+      } else if (this.mode === 'pos') {
         // Continuous critically-damped servo: stiffness blends smoothly with
         // the hand/platter speed mismatch, so there is no soft/hard switch
         // chattering (which was audible as tiny ticks) yet hard cuts and
@@ -174,12 +227,13 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.rate += (this.target - this.rate) * k;
         if (Math.abs(this.target - this.rate) < 0.0001) this.rate = this.target;
       }
-      const i = Math.floor(this.pos);
-      const f = this.pos - i;
+      const rp = advanced ? this.pos - this.rate * ratio : this.pos;
+      const i = Math.floor(rp);
+      const f = rp - i;
       // A stationary platter must be silent: repeatedly outputting the same
       // sample creates a DC/buzzy tone on some Bluetooth and phone outputs.
-      const slow = Math.min(1, Math.abs(this.rate) * 40);
-      this.motionGain += (slow - this.motionGain) * gainK;
+      const slow = Math.min(1, Math.abs(this.rate) * 90);
+      this.motionGain += (slow - this.motionGain) * motionK;
       this.envelope += ((this.on ? 1 : 0) - this.envelope) * gainK;
       for (let c = 0; c < out.length; c++) {
         const src = this.ch[c < this.ch.length ? c : this.ch.length - 1];
@@ -188,7 +242,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.dcX[c] = value; this.dcY[c] = filtered;
         out[c][s] = filtered * this.motionGain * this.envelope;
       }
-      this.pos += this.rate * ratio;
+      if (!advanced) this.pos += this.rate * ratio;
       if (this.pos < 0) { this.pos = 0; this.rate = 0; this.target = 0; this.tVel = 0; if (this.tPos < 0) this.tPos = 0; }
       if (this.pos > n - 2) { this.pos = n - 2; this.rate = 0; this.target = 0; this.tVel = 0; if (this.tPos > n - 2) this.tPos = n - 2; }
     }
@@ -217,10 +271,12 @@ export class ScratchPlayer {
   private sent: AudioBuffer | null = null;
   private ready: Promise<void>;
   private pendingRate = 0;
+  private pendingRateMessage: { rate: number; when?: number } | null = null;
   private generation = 0;
   private channels = 2;
   private starting = false;
   private pendingTarget: { pos: number; vel: number } | null = null;
+  private pendingPoints: { pos: number; when: number }[] = [];
   private reportedPosition: number | null = null;
   private reportedTime = 0;
   /** Last speed reported by the worklet (sec/sec), used for release hand-off. */
@@ -284,6 +340,8 @@ export class ScratchPlayer {
     const generation = ++this.generation;
     this.starting = true;
     this.pendingTarget = null;
+    this.pendingPoints = [];
+    this.pendingRateMessage = null;
     this.pendingRate = rate;
     this.reportedPosition = pos;
     this.reportedTime = this.ctx.currentTime;
@@ -292,6 +350,9 @@ export class ScratchPlayer {
     if (!this.node || generation !== this.generation) return false;
     this.send(buffer);
     this.node.port.postMessage({ type: "start", pos, rate: this.pendingRate, session: generation });
+    const pending = this.pendingRateMessage as { rate: number; when?: number } | null;
+    if (pending) this.node.port.postMessage({ type: "rate", rate: pending.rate, when: pending.when });
+    this.pendingRateMessage = null;
     this.starting = false;
     this.flushTarget();
     return true;
@@ -301,6 +362,20 @@ export class ScratchPlayer {
     const target = this.pendingTarget;
     if (target) this.node?.port.postMessage({ type: "target", pos: target.pos, vel: target.vel, when: this.ctx.currentTime });
     this.pendingTarget = null;
+    for (const p of this.pendingPoints) this.node?.port.postMessage({ type: "point", pos: p.pos, when: p.when });
+    this.pendingPoints = [];
+  }
+
+  /**
+   * Hand-trajectory scratch: `pos` is the platter position (s) at the
+   * pointer event's `performance.now()` timestamp. Mapped onto the audio
+   * clock so the worklet replays the exact gesture timing.
+   */
+  pushPoint(pos: number, eventTime: number) {
+    const lag = Math.max(0, Math.min(0.1, (performance.now() - eventTime) / 1000));
+    const when = this.ctx.currentTime - lag;
+    if (this.starting) { this.pendingPoints.push({ pos, when }); return; }
+    this.node?.port.postMessage({ type: "point", pos, when });
   }
 
   /** Upload the track to the worklet ahead of time so the first scratch has no hitch. */
@@ -311,6 +386,7 @@ export class ScratchPlayer {
 
   setRate(rate: number, when?: number) {
     this.pendingRate = rate;
+    if (this.starting) { this.pendingRateMessage = { rate, when }; return; }
     this.node?.port.postMessage({ type: "rate", rate, when });
   }
 
@@ -321,8 +397,8 @@ export class ScratchPlayer {
   }
 
   /** Motor/brake ramp toward `rate` with time constant `tau` seconds. */
-  motor(rate: number, tau: number) {
-    this.node?.port.postMessage({ type: "motor", rate, tau });
+  motor(rate: number, tau: number, from?: number) {
+    this.node?.port.postMessage({ type: "motor", rate, tau, from });
   }
 
   setPos(pos: number) {

@@ -33,10 +33,34 @@ export function angleToSeconds(angle: number, sensitivity: number) {
   return (angle / (2 * Math.PI)) * SECONDS_PER_REV * Math.max(0.1, sensitivity);
 }
 
+/** Release uses only the latest direction, not the earlier half of a chirp. */
+export function releaseVelocity(history: number[], now: number, sensitivity: number) {
+  if (history.length < 4) return 0;
+  const end = history.length - 2;
+  if (now - history[end] > 50) return 0;
+  let start = end;
+  let direction = 0;
+  for (let i = end - 2; i >= 0 && history[end] - history[i] <= 30; i -= 2) {
+    const delta = history[i + 3] - history[i + 1];
+    const sign = Math.sign(delta);
+    if (sign && direction && sign !== direction) break;
+    if (sign) direction = sign;
+    start = i;
+  }
+  const dt = (history[end] - history[start]) / 1000;
+  return dt > 0.002 ? angleToSeconds(history[end + 1] - history[start + 1], sensitivity) / dt : 0;
+}
+
 /** Coast time constant (s) for a released fling with given friction. */
 export function coastTau(friction: number) {
   const f = Math.min(1, Math.max(0, friction));
   return 0.02 + (1 - f) * 0.6;
+}
+
+/** Free-spin slowdown time constant (s) after flinging the platter. */
+export function freeSpinTau(friction: number) {
+  const f = Math.min(1, Math.max(0, friction));
+  return 0.12 + (1 - f) * 2.4;
 }
 
 /**

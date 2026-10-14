@@ -2,37 +2,16 @@ import { DEFAULT_SCRATCH, type ScratchSettings, type XfCurve } from "@/lib/dj/sc
 import { useEffect, useState } from "react";
 import { DEFAULT_RECORDING, type RecordingOptions } from "@/lib/dj/recording";
 
-export type JogStyle =
-  | "rane"
-  | "silver"
-  | "black"
-  | "neon"
-  | "pioneer"
-  | "neonDisc"
-  | "pioneer3d"
-  | "neonDisc3d"
-  | "vinyl"
-  | "chrome"
-  | "army"
-  | "olive"
-  | "carbon"
-  | "neonVinyl";
+export type JogStyle = "silver" | "pioneer3d" | "neonDisc3d" | "vinyl" | "combatLight" | "combatDark" | "extended";
 
 export const JOG_STYLES: { key: JogStyle; label: string }[] = [
-  { key: "rane", label: "Rane inspired" },
   { key: "silver", label: "Silver" },
-  { key: "black", label: "Black" },
-  { key: "neon", label: "Neon" },
-  { key: "pioneer", label: "Pioneer 2D" },
-  { key: "pioneer3d", label: "Pioneer 3D" },
-  { key: "neonDisc", label: "Neon Disc" },
   { key: "neonDisc3d", label: "Neon 3D" },
-  { key: "vinyl", label: "Vinyl" },
-  { key: "chrome", label: "Chrome" },
-  { key: "army", label: "Army" },
-  { key: "olive", label: "Army Green" },
-  { key: "carbon", label: "Carbon" },
-  { key: "neonVinyl", label: "Neon vinyl" },
+  { key: "pioneer3d", label: "Pioneer 3D" },
+  { key: "vinyl", label: "djay-style Vinyl" },
+  { key: "combatLight", label: "Combat Light" },
+  { key: "combatDark", label: "Combat Dark" },
+  { key: "extended", label: "Extended" },
 ];
 
 export function normalizeJogStyle(value: unknown): JogStyle {

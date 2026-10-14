@@ -48,6 +48,8 @@ class NativeVideo : Plugin() {
     @PluginMethod fun crossfade(call: PluginCall) { renderer.x = (call.getDouble("x") ?: 0.5).toFloat(); call.resolve() }
 
     class Mixer : GLSurfaceView.Renderer {
+        private val lastSync = LongArray(2)
+        private val ready = BooleanArray(2)
         val pending = arrayOfNulls<String>(2)
         val players = arrayOfNulls<MediaPlayer>(2)
         val tex = IntArray(2); val st = arrayOfNulls<SurfaceTexture>(2)
@@ -76,11 +78,20 @@ class NativeVideo : Plugin() {
                 pending[i]?.let { path ->
                     pending[i] = null
                     players[i]?.release()
+                    ready[i] = false
+                    val idx = i
                     players[i] = MediaPlayer().apply {
-                        setDataSource(path); setVolume(0f, 0f); setSurface(Surface(st[i])); prepare()
+                        setDataSource(path); setVolume(0f, 0f); setSurface(Surface(st[i]))
+                        setOnPreparedListener { it.start(); ready[idx] = true }
+                        prepareAsync() // never block the GL thread while loading
                     }
                 }
                 val mp = players[i] ?: continue
+                if (!ready[i]) continue
+                // Binder calls to the media server are slow: resync ~3x per second, not every frame.
+                val now = System.currentTimeMillis()
+                if (now - lastSync[i] < 300) { st[i]?.updateTexImage(); continue }
+                lastSync[i] = now
                 // slave to the Oboe deck clock: rate-correct small drift, hard seek large drift
                 val audio = NativeDj.nPos(i) * 1000.0
                 val drift = audio - mp.currentPosition

@@ -133,6 +133,7 @@ export function SettingsPanel({
               <Button variant="ghost" onClick={() => setPage("account")} className="settings-row h-24 w-full justify-start gap-4 rounded-none px-5 text-base"><span className="settings-avatar grid size-16 shrink-0 place-items-center rounded-full"><UserRound className="size-9" /></span>{license.user?.name ?? "Log in"}<ChevronRight className="ml-auto text-muted-foreground" /></Button>
               <div className="mt-10">
                 {onAutomix && <Button variant="ghost" onClick={() => { setOpen(false); onAutomix(); }} className="settings-row h-14 w-full justify-between rounded-none px-5 text-base">Automix<ChevronRight /></Button>}
+                <Button variant="ghost" onClick={() => { setOpen(false); window.dispatchEvent(new Event("dj:studio")); }} className="settings-row h-14 w-full justify-between rounded-none px-5 text-base">Studio mode<ChevronRight /></Button>
                 {([ ["playback", "Audio & video"], ["decks", "General · decks & controllers"], ["appearance", "Appearance · waveforms"] ] as const).map(([key, label]) => <Button key={key} variant="ghost" onClick={() => setPage(key)} className="settings-row h-14 w-full justify-between rounded-none px-5 text-base">{label}<ChevronRight /></Button>)}
               </div>
             </div>}
@@ -245,13 +246,9 @@ export function SettingsPanel({
             </Section>
 
             <Section title="Jog Wheel Style">
-              <div className="grid grid-cols-3 landscape:grid-cols-7 gap-2">
-                {JOG_STYLES.map((j) => (
-                  <Pill key={j.key} on={s.jogStyle === j.key} onClick={() => setS({ jogStyle: j.key })}>
-                    {j.label}
-                  </Pill>
-                ))}
-              </div>
+              <select aria-label="Jogwheel style" value={s.jogStyle} onChange={event => setS({ jogStyle: JOG_STYLES.find(style => style.key === event.target.value)?.key ?? "silver" })} className="w-full rounded-md border border-border bg-secondary px-3 py-2 text-sm text-foreground">
+                {JOG_STYLES.map(style => <option key={style.key} value={style.key}>{style.label}</option>)}
+              </select>
             </Section>
 
             <Section title="Scratch & crossfader">

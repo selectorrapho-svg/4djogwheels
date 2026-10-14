@@ -1,12 +1,12 @@
 import { BandedPeaks } from "./engine";
 
-// Shared full spectrum: red bass, yellow low mids, green vocals, cyan/blue highs.
-export const RGB_BANDS: [keyof BandedPeaks, string, number][] = [
+// Frequency-coded RGB: bass red, drums yellow, vocals green, treble blue.
+const RGB_BANDS: [keyof BandedPeaks, string, number][] = [
   ["sub", "rgb(240,48,56)", 1.5],
   ["bass", "rgb(255,88,65)", 1.35],
   ["lowMid", "rgb(255,214,40)", 1.2],
   ["mid", "rgb(40,235,90)", 1.12],
-  ["presence", "rgb(0,240,230)", 1.0],
+  ["presence", "rgb(50,160,255)", 1.0],
   ["high", "rgb(85,100,255)", 0.95],
 ];
 
@@ -40,7 +40,7 @@ export function stemBands(): [keyof BandedPeaks, string, number][] {
 
 // Cubic (Catmull-Rom) sampling of a peak array at a fractional index.
 // This is what makes the waveform stay silky when zoomed way in.
-export function smoothAt(arr: Float32Array, pos: number): number {
+export function smoothAt(arr: Float32Array, pos: number, angular = false): number {
   const n = arr.length;
   if (n === 0) return 0;
   if (pos < 0 || pos > n - 1) return 0;
@@ -51,6 +51,7 @@ export function smoothAt(arr: Float32Array, pos: number): number {
   const p1 = arr[i];
   const p2 = arr[Math.min(n - 1, i + 1)];
   const p3 = arr[Math.min(n - 1, i + 2)];
+  if (angular) return Math.max(0, p1 + (p2 - p1) * t);
   const v =
     0.5 *
     (2 * p1 +

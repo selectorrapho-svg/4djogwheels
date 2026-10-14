@@ -37,7 +37,11 @@
   --reference-text: oklch(0.98 0 0);
   --reference-selection: oklch(0.68 0.17 235);
   --radius: 0.5rem;
+  --knob-ring: oklch(0.36 0 0);
+  --platter-light: oklch(0.83 0 0);
+  --platter-dark: oklch(0.1 0 0);
   --fader-metal: oklch(0.43 0 0);
+  --crossfader-glass: oklch(0.58 0 0 / 0.72);
   --fader-line: oklch(0.2 0 0);
   --pad-cyan: oklch(0.77 0.14 205);
   --pad-green: oklch(0.77 0.22 145);
@@ -382,9 +386,8 @@
   .library-load-a { color: var(--accent-orange); border-color: color-mix(in oklab, var(--accent-orange) 55%, var(--border)); }
   .library-load-b { color: var(--accent-blue); border-color: color-mix(in oklab, var(--accent-blue) 55%, var(--border)); }
   .hardware-crossfader { position: relative; height: 44px; width: 100%; max-width: 220px; margin-inline: auto; touch-action: none; cursor: ew-resize; }
-  .crossfader-rail { position: absolute; inset-inline: 14px; top: 20px; height: 4px; background: var(--fader-line); border: 1px solid var(--border); box-shadow: inset 0 1px 2px color-mix(in oklab, var(--background) 65%, transparent); }
-  .crossfader-cap { position: absolute; top: 3px; width: 26px; height: 38px; transform: translateX(-50%); display: grid; place-items: center; background: var(--fader-metal); border: 1px solid var(--glass-border); border-radius: 7px; backdrop-filter: blur(20px); box-shadow: var(--glass-shadow); }
-  .crossfader-cap i { width: 3px; height: 24px; border-radius: 2px; background: var(--foreground); box-shadow: 0 0 0 1px var(--background); }
+  .crossfader-rail { position: absolute; inset-inline: 14px; top: 20px; height: 4px; border-radius: 2px; background: var(--fader-line); border: 1px solid var(--border); box-shadow: inset 0 1px 2px color-mix(in oklab, var(--background) 65%, transparent); }
+  .crossfader-cap { position: absolute; top: -2px; width: 16px; height: 48px; transform: translateX(-50%); background: var(--crossfader-glass); border: 1px solid var(--glass-border); border-radius: 5px; backdrop-filter: blur(20px); box-shadow: var(--glass-shadow); }
   .jog-position-marker { position: absolute; left: 49%; top: 5.5%; width: 2.5%; height: 9%; border-radius: 9999px; background: var(--muted-foreground); }
   [data-loaded="true"] .jog-position-marker { background: var(--accent-red); box-shadow: 0 0 6px color-mix(in oklab, var(--accent-red) 75%, transparent); }
   .jog-album-art { position: absolute; inset: 34%; width: 32%; height: 32%; border-radius: 9999px; object-fit: cover; border: 2px solid var(--foreground); }
@@ -510,10 +513,9 @@
 .splash-logo { animation: splash-rise .8s ease-out .3s both; }
 .splash-next { animation: splash-rise .8s ease-out .9s both; }
 
-/* ---- Pricing: frosted glass on rainbow ---- */
-@keyframes rainbow-shift { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
-.pricing-rainbow { background: linear-gradient(120deg, oklch(0.65 0.25 25), oklch(0.8 0.18 85), oklch(0.7 0.2 150), oklch(0.65 0.18 230), oklch(0.55 0.25 300), oklch(0.65 0.25 25)); background-size: 200% 200%; animation: rainbow-shift 12s linear infinite; }
-.pricing-glass { background: oklch(0.15 0.01 260 / .45); backdrop-filter: blur(22px) saturate(160%); border: 1px solid oklch(1 0 0 / .25); box-shadow: 0 20px 50px oklch(0 0 0 / .45), inset 0 1px 0 oklch(1 0 0 / .2); animation: splash-rise .5s ease-out both; }
+/* Neutral subscription surface. */
+.pricing-neutral { background: var(--background); }
+.pricing-glass { background: var(--secondary); border: 1px solid var(--border); box-shadow: var(--glass-shadow); animation: splash-rise .5s ease-out both; }
 
 /* Deck-local performance controls: neutral faders, reactive colored pads. */
 .animated-pad { position: relative; overflow: hidden; border-radius: 6px; background: color-mix(in oklab, var(--pad-color) 20%, var(--background)); box-shadow: inset 0 1px 0 var(--glass-border); transition: background 120ms, transform 120ms; }
@@ -545,3 +547,50 @@
 .mixer-channel .mixer-knob > div { max-height: min(54px, 17cqh); max-width: min(54px, 17cqh); }
 .mixer-channel .mixer-knob ~ .mixer-knob > div { max-height: min(42px, 14cqh); max-width: min(42px, 14cqh); }
 .mixer-channel .mixer-knob > span { margin-top: -2px; }
+
+/* Studio (DAW) arrangement */
+:root {
+  --studio-1: oklch(0.62 0.17 250 / 0.75);
+  --studio-2: oklch(0.68 0.17 150 / 0.75);
+  --studio-3: oklch(0.72 0.16 70 / 0.75);
+  --studio-4: oklch(0.62 0.2 25 / 0.75);
+  --studio-5: oklch(0.62 0.18 310 / 0.75);
+  --studio-6: oklch(0.7 0.13 200 / 0.75);
+}
+.studio-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--border) 45%, transparent) 1px, transparent 1px),
+    linear-gradient(to right, var(--border) 1px, transparent 1px);
+}
+
+/* Original platter interpretations; all use the shared scratch engine. */
+[data-jog-style="vinyl"] .jog-skin, [data-jog-style="combatDark"] .jog-skin, [data-jog-style="extended"] .jog-skin { background: var(--platter-dark); }
+[data-jog-style="vinyl"] .jog-grooves { inset: 4%; border: 1px solid var(--knob-ring); box-shadow: inset 0 0 0 5px var(--platter-dark), inset 0 0 0 6px var(--knob-ring), inset 0 0 0 12px var(--platter-dark), inset 0 0 0 13px var(--knob-ring); }
+[data-jog-style="combatLight"] .jog-skin { background: var(--platter-light); border: 3px solid var(--knob-ring); }
+[data-jog-style="combatLight"] .jog-grooves { inset: 8%; border: 3px double var(--knob-ring); box-shadow: none; }
+[data-jog-style="combatDark"] .jog-grooves { inset: 8%; border: 3px double var(--muted-foreground); box-shadow: none; }
+[data-jog-style="extended"] .jog-grooves { inset: 4%; border: 9px double var(--knob-ring); box-shadow: inset 0 0 0 2px var(--muted-foreground); }
+.platter-index { position: absolute; top: 6%; left: calc(50% - 2px); height: 20%; width: 4px; border-radius: 2px; background: var(--foreground); }
+[data-jog-style="combatLight"] .platter-index { background: var(--platter-dark); }
+.wave-analysis { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; pointer-events: none; background: color-mix(in oklab, var(--background) 75%, transparent); color: var(--foreground); font-size: 11px; font-variant-numeric: tabular-nums; }
+.wave-analysis progress { width: 70%; max-width: 140px; height: 4px; accent-color: var(--muted-foreground); }
+
+/* Reference combat/extended readouts remain stationary inside the moving rim. */
+[data-jog-style="combatDark"], [data-jog-style="combatLight"], [data-jog-style="extended"] { container-type: inline-size; }
+[data-jog-style="combatDark"] .jog-skin, [data-jog-style="combatLight"] .jog-skin, [data-jog-style="extended"] .jog-skin { inset: 1%; border: 3px solid var(--knob-ring); background: var(--platter-dark); }
+[data-jog-style="combatDark"] .jog-grooves, [data-jog-style="combatLight"] .jog-grooves, [data-jog-style="extended"] .jog-grooves, [data-jog-style="combatDark"] .jog-label, [data-jog-style="combatLight"] .jog-label, [data-jog-style="extended"] .jog-label { display: none; }
+[data-jog-style="combatDark"] .jog-readout, [data-jog-style="combatLight"] .jog-readout { inset: 16%; background: var(--platter-dark); border: 2px solid var(--knob-ring); gap: 3px; }
+[data-jog-style="combatLight"] .jog-readout { background: var(--platter-light); color: var(--platter-dark); }
+[data-jog-style="extended"] .jog-readout { inset: 5%; background: var(--fader-metal); color: var(--reference-text); border: 2px solid var(--platter-dark); gap: 4px; }
+[data-jog-style="combatDark"] .platter-index, [data-jog-style="combatLight"] .platter-index { top: 2%; height: 16%; width: 6%; left: 47%; border-radius: 0; background: var(--fader-metal); }
+[data-jog-style="extended"] .platter-index { display: none; }
+.jog-readout-pitch { font-size: 12px; opacity: 0.7; }
+[data-jog-style="combatDark"] .jog-readout-bpm, [data-jog-style="combatLight"] .jog-readout-bpm, [data-jog-style="extended"] .jog-readout-bpm { font-size: 30px; font-weight: 500; line-height: 1.2; }
+[data-jog-style="extended"] .jog-readout-bpm { color: var(--control-blue); }
+[data-jog-style="combatDark"] .jog-readout-time, [data-jog-style="combatLight"] .jog-readout-time, [data-jog-style="extended"] .jog-readout-time { font-size: 16px; border-top: 1px solid var(--knob-ring); padding-top: 4px; width: 80%; text-align: center; opacity: 0.7; }
+.jog-readout-remaining { font-size: 16px; line-height: 1.2; }
+@container (max-width: 180px) {
+  .jog-readout-bpm { font-size: 22px !important; }
+  .jog-readout-time, .jog-readout-remaining { font-size: 11px !important; }
+  .jog-readout-pitch { font-size: 9px; }
+}
