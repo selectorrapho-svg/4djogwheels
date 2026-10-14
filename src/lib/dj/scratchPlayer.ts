@@ -204,23 +204,26 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.pos += r * ratio;
         advanced = true;
       } else if (this.mode === 'pos') {
-        // Continuous critically-damped servo: stiffness blends smoothly with
-        // the hand/platter speed mismatch, so there is no soft/hard switch
-        // chattering (which was audible as tiny ticks) yet hard cuts and
-        // direction flips still snap within ~1.5 ms.
+        // Alpha-beta position tracker (the technique Mixxx uses for jog
+        // scratching, rebuilt here per-sample): predict position from the
+        // current speed, then correct both position and speed by the error.
+        // Critically damped at ~45 Hz, so the record locks to the hand within
+        // a few ms, reverses without overshoot and never jumps (no clicks).
         const fresh = this.age < maxAge;
         if (!fresh) this.tVel *= vDecay;
         const a = fresh ? this.age : maxAge;
         const goal = this.tPos + this.tVel * a * ratio;
-        let m = Math.abs(this.tVel - this.rate) / 0.6;
-        if (this.tVel * this.rate < 0) m = 1;
-        if (m > 1) m = 1;
-        m = m * m * (3 - 2 * m);
-        const servo = servoSoft + (servoHard - servoSoft) * m;
-        const kk = kSoft + (kHard - kSoft) * m;
-        let desired = this.tVel + (goal - this.pos) / ratio * servo;
-        if (desired > 24) desired = 24; else if (desired < -24) desired = -24;
-        this.rate += (desired - this.rate) * kk;
+        const predicted = this.pos + this.rate * ratio;
+        const err = goal - predicted;
+        const step = this.rate * ratio + abA * err;
+        let v = this.rate * ratio + abB * err;
+        let r = v / ratio;
+        if (r > 24) r = 24; else if (r < -24) r = -24;
+        let st = step / ratio;
+        if (st > 24) st = 24; else if (st < -24) st = -24;
+        this.pos += st * ratio;
+        this.rate = r;
+        advanced = true;
         if (!fresh && Math.abs(this.rate) < 0.001 && Math.abs(goal - this.pos) < 1) this.rate = 0;
         this.age++;
       } else {
