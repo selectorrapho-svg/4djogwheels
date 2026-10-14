@@ -176,6 +176,8 @@ class ScratchProcessor extends AudioWorkletProcessor {
     // fades instead of chopping the signal — the chop was the audible 'tik'.
     const motionK = 1 - Math.exp(-1 / (0.004 * sampleRate));
     const pathK = 1 - Math.exp(-1 / (0.0012 * sampleRate)); // smooths speed steps between touch samples (zipper/cut noise)
+    const abW = 2 * Math.PI * 45 / sampleRate;
+    const abA = 2 * abW, abB = abW * abW;
     const dcPole = Math.exp(-2 * Math.PI * 5 / sampleRate);
     for (let s = 0; s < len; s++) {
       while (this.events.length && this.events[0].frame <= currentFrame + s) {
@@ -184,6 +186,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.mode = 'rate';
       }
       let advanced = false;
+      const prevPos = this.pos;
       if (this.mode === 'path' && this.path.length) {
         const rt = (currentFrame + s) / sampleRate - this.delay;
         const P = this.path;
@@ -230,7 +233,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.rate += (this.target - this.rate) * k;
         if (Math.abs(this.target - this.rate) < 0.0001) this.rate = this.target;
       }
-      const rp = advanced ? this.pos - this.rate * ratio : this.pos;
+      const rp = advanced ? prevPos : this.pos;
       const i = Math.floor(rp);
       const f = rp - i;
       // A stationary platter must be silent: repeatedly outputting the same
