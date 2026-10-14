@@ -1,3 +1,5 @@
+#include <thread>
+#include <chrono>
 // Native DJ audio engine: Oboe (AAudio on Android 8.1+, OpenSL ES fallback).
 // 4 decks, signed-rate playback (real backwards scratching), per-sample rate
 // smoothing, Hermite interpolation, click-free gain ramps. Lock-free control
@@ -56,7 +58,11 @@ class Engine : public oboe::AudioStreamDataCallback, public oboe::AudioStreamErr
     // Exclusive low latency is not always available on wireless outputs.
     if (b.openStream(stream) != oboe::Result::OK) {
       b.setSharingMode(oboe::SharingMode::Shared);
-      if (b.openStream(stream) != oboe::Result::OK) return false;
+      if (b.openStream(stream) != oboe::Result::OK) {
+        // Bluetooth A2DP often rejects low-latency mode entirely.
+        b.setPerformanceMode(oboe::PerformanceMode::None);
+        if (b.openStream(stream) != oboe::Result::OK) return false;
+      }
     }
     sampleRate = stream->getSampleRate();
     // Wireless/shared outputs need more headroom or they underrun and freeze.
@@ -69,7 +75,14 @@ class Engine : public oboe::AudioStreamDataCallback, public oboe::AudioStreamErr
     // Bluetooth/headset route changes close the stream: reopen on the new
     // device and keep every deck's position so playback carries on.
     (void)error;
-    start();
+    // Oboe forbids reopening from its own callback thread; retry on a worker
+    // until the new route (e.g. Bluetooth) accepts the stream.
+    std::thread([this] {
+      for (int i = 0; i < 10; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(150 * (i + 1)));
+        if (start()) return;
+      }
+    }).detach();
   }
 
   static inline float hermite(const float* d, long n, long i, float f, int c) {

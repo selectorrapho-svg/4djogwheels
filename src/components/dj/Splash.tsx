@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logoAsset from "@/assets/mix4deejays-logo.jpg.asset.json";
 import splash from "@/assets/djogwheels-splash-clean.jpg";
+import portraitSplash from "@/assets/djogwheels-portrait-splash.png.asset.json";
 import { AccountPanel } from "./AccountPanel";
 import { whatsappPayUrl, PRICE_KES } from "@/lib/dj/license";
 
@@ -14,17 +15,20 @@ export function Splash({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[100] bg-background dark overflow-hidden">
+      <picture>
+        <source media="(orientation: portrait)" srcSet={portraitSplash.url} />
       <img
         src={splash}
         alt="DJ splash artwork designed by VdjRaph"
         className="splash-art absolute inset-0 w-full h-full object-cover"
       />
+      </picture>
       <div className="splash-sheen pointer-events-none absolute inset-0" />
       <img src={logoAsset.url} alt="mix4deejays" className="splash-logo absolute left-4 top-4 h-16 w-16 rounded-md object-contain" />
       {phase === "splash" && <Button onClick={() => setPhase("offer")} className="splash-next absolute bottom-[12%] right-[7%] min-w-28 border border-border bg-background/60 text-foreground shadow-lg backdrop-blur-md hover:bg-background" aria-label="Next to pricing">Next</Button>}
 
       {phase === "offer" && (
-        <div className="pricing-rainbow absolute inset-0 flex justify-center overflow-y-auto p-3">
+        <div className="pricing-neutral absolute inset-0 flex justify-center overflow-y-auto p-3">
           <div className="pricing-glass relative my-auto w-full max-w-[420px] rounded-2xl p-4">
             <Button variant="ghost" size="icon"
               onClick={onDone}

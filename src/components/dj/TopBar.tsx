@@ -1,3 +1,4 @@
+import trackPlaceholder from "@/assets/track-placeholder.jpg";
 import { Deck } from "@/lib/dj/engine";
 import { useDeck } from "@/lib/dj/useMixer";
 import { TrackOverview } from "./Waveform";
@@ -26,7 +27,7 @@ function TopTrack({ deck, side }: { deck: Deck; side: "left" | "right" }) {
       style={{ boxShadow: `0 0 10px ${accent}44, inset 0 1px 0 rgba(255,255,255,0.14)` }}
       title="Load track"
     >
-      {deck.coverUrl ? <img src={deck.coverUrl} alt={`${deck.trackName} album cover`} className="size-full rounded-lg object-cover" /> : <Music className="w-4 h-4" style={{ color: accent }} />}
+      {true ? <img src={deck.coverUrl ?? trackPlaceholder} alt={`${deck.trackName} album cover`} className="size-full rounded-lg object-cover" /> : <Music className="w-4 h-4" style={{ color: accent }} />}
     </button>
   );
 

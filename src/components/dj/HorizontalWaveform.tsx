@@ -1,25 +1,25 @@
+import { WaveAnalysisStatus } from "./WaveAnalysisStatus";
 import { useEffect, useRef, useState } from "react";
-import { Deck, computeBandedPeaks, BandedPeaks } from "@/lib/dj/engine";
+import { Deck, BandedPeaks } from "@/lib/dj/engine";
 import { stemBands, smoothAt, BAND_STEM } from "@/lib/dj/wavedraw";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDjSettings } from "@/hooks/useDjSettings";
-import { BeatGridEditor, useGridDrag } from "./BeatGridEditor";
-import { buildRgbStrip, drawRgbStrip, drawZigzag, zoomedZigzag, stemsKey, stemsOn, waveStyle, type RgbStrip } from "@/lib/dj/rgbWave";
+import { buildRgbStrip, drawRgbStrip, drawZigzag, zoomedZigzag, stemsKey, stemsOn, type RgbStrip } from "@/lib/dj/rgbWave";
 
 function makeStrip(axis: "x" | "y") {
   const ref = { strip: null as RgbStrip | null, key: "", peaks: null as BandedPeaks | null };
   return (peaks: BandedPeaks, deck: Deck) => {
-    const style = waveStyle() ?? "rgb";
-    const k = style + ":" + stemsKey(deck.stems, deck.stemLevels) + ":" + peaks.overall.length;
+    const k = stemsKey(deck.stems as never) + ":" + peaks.overall.length;
     if (ref.key !== k || ref.peaks !== peaks || !ref.strip) {
-      ref.strip = buildRgbStrip(peaks, stemsOn(deck.stems, deck.stemLevels), axis, style);
+      ref.strip = buildRgbStrip(peaks, stemsOn(deck.stems as never), axis);
       ref.key = k;
       ref.peaks = peaks;
     }
     return ref.strip;
   };
 }
+const isRgb3 = () => ((globalThis as { __djWaveColor?: string }).__djWaveColor ?? "rgb3") === "rgb3";
 import { useWaveScratch } from "@/lib/dj/useWaveScratch";
 
 
@@ -35,17 +35,10 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
   const peaksRef = useRef<BandedPeaks | null>(null);
   const rafRef = useRef(0);
   const [zoom, setZoom] = useState(1);
-  const [editingGrid, setEditingGrid] = useState(false);
   const [settings] = useDjSettings();
   const effectiveZoom = zoom * settings.waveZoom;
 
-  useEffect(() => {
-    if (!deck.buffer) {
-      peaksRef.current = null;
-      return;
-    }
-    peaksRef.current = computeBandedPeaks(deck.buffer, 16000);
-  }, [deck.buffer]);
+  peaksRef.current = deck.wavePeaks;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -87,11 +80,10 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
       const step = Math.max(1, Math.floor(dpr));
 
       ctx.globalCompositeOperation = "source-over";
-      const style = waveStyle();
-      if (style || zoomedZigzag(effectiveZoom)) {
-        const strip = getStrip(peaks, deck);
-        if (strip) for (let lane = 0; lane < settings.waveTracks; lane++) {
-          const on = settings.waveTracks === 1 ? stemsOn(deck.stems, deck.stemLevels) : { bass: lane === 0 && deck.stems.bass.on ? deck.stemLevels.bass : 0, drums: lane === 0 && deck.stems.drums.on ? deck.stemLevels.drums : 0, vocals: lane === 1 && deck.stems.vocals.on ? deck.stemLevels.vocals : 0, other: (settings.waveTracks === 2 ? lane === 1 : lane === 2) && deck.stems.other.on ? deck.stemLevels.other : 0 };
+      const strip = isRgb3() ? getStrip(peaks, deck) : null;
+      if (strip) {
+        for (let lane = 0; lane < settings.waveTracks; lane++) {
+          const on = settings.waveTracks === 1 ? stemsOn(deck.stems) : { bass: lane === 0 && deck.stems.bass.on, drums: lane === 0 && deck.stems.drums.on, vocals: lane === 1 && deck.stems.vocals.on, other: (settings.waveTracks === 2 ? lane === 1 : lane === 2) && deck.stems.other.on };
           const laneStrip = settings.waveTracks === 1 ? strip : getLaneStrip(lane, peaks, on);
           if (zoomedZigzag(effectiveZoom)) drawZigzag(ctx, peaks, on, dur, t, pxPerSec, W, W / 2, lane * H / settings.waveTracks, H / settings.waveTracks, "x");
           else if (laneStrip) drawRgbStrip(ctx, laneStrip, dur, t, pxPerSec, W, W / 2, lane * H / settings.waveTracks, H / settings.waveTracks);
@@ -105,12 +97,12 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
         ctx.moveTo(0, cy);
         for (let x = 0; x <= W; x += step) {
           const timeAt = t + (x - W / 2) / pxPerSec;
-          const v = smoothAt(arr, timeAt / secsPerBin) * deck.stemLevels[BAND_STEM[key as string]] * cy * scale;
+          const v = smoothAt(arr, timeAt / secsPerBin, effectiveZoom > 1) * cy * scale;
           ctx.lineTo(x, cy - v);
         }
         for (let x = W; x >= 0; x -= step) {
           const timeAt = t + (x - W / 2) / pxPerSec;
-          const v = smoothAt(arr, timeAt / secsPerBin) * deck.stemLevels[BAND_STEM[key as string]] * cy * scale;
+          const v = smoothAt(arr, timeAt / secsPerBin, effectiveZoom > 1) * cy * scale;
           ctx.lineTo(x, cy + v);
         }
         ctx.closePath();
@@ -128,14 +120,13 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
       // beat grid
       if (deck.bpm && deck.bpm > 40) {
         const secPerBeat = 60 / deck.bpm;
-        const firstBeat = Math.floor((t - secondsVisible / 2 - deck.firstBeat) / secPerBeat);
-        const lastBeat = Math.ceil((t + secondsVisible / 2 - deck.firstBeat) / secPerBeat);
+        const firstBeat = Math.floor((t - secondsVisible / 2) / secPerBeat);
+        const lastBeat = Math.ceil((t + secondsVisible / 2) / secPerBeat);
         for (let bi = firstBeat; bi <= lastBeat; bi++) {
-          const bx = W / 2 + (deck.firstBeat + bi * secPerBeat - t) * pxPerSec;
+          const bx = W / 2 + (bi * secPerBeat - t) * pxPerSec;
           const isDown = bi % 4 === 0;
           ctx.fillStyle = isDown ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.09)";
-          ctx.fillRect(bx, isDown ? 0 : H * 0.15, editingGrid ? 2 : 1, isDown ? H : H * 0.7);
-          if (editingGrid) { ctx.beginPath(); ctx.arc(bx, H / 2, 4 * dpr, 0, Math.PI * 2); ctx.fill(); }
+          ctx.fillRect(bx, isDown ? 0 : H * 0.15, 1, isDown ? H : H * 0.7);
           if (isDown) {
             ctx.fillStyle = "rgba(255,255,255,0.55)";
             ctx.font = `${10 * dpr}px ui-sans-serif`;
@@ -173,8 +164,7 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
     const lanes = new Map<number, { key: string; strip: RgbStrip | null }>();
     const getLaneStrip = (lane: number, peaks: BandedPeaks, on: ReturnType<typeof stemsOn>) => {
       const key = JSON.stringify(on); let cached = lanes.get(lane);
-      const style = waveStyle() ?? "rgb";
-      if (!cached || cached.key !== style + key) { cached = { key: style + key, strip: buildRgbStrip(peaks, on, "x", style) }; lanes.set(lane, cached); }
+      if (!cached || cached.key !== key) { cached = { key, strip: buildRgbStrip(peaks, on, "x") }; lanes.set(lane, cached); }
       return cached.strip;
     };
     resize(); const observer = new ResizeObserver(resize); observer.observe(canvas);
@@ -186,36 +176,32 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(rafRef.current); observer.disconnect(); };
-  }, [deck, color, index, effectiveZoom, settings.waveTracks, settings.waveColor, editingGrid]);
+  }, [deck, color, index, effectiveZoom, settings.waveTracks, settings.waveColor]);
 
   const scratch = useWaveScratch(deck, "x", () => {
     const w = canvasRef.current?.clientWidth ?? 1;
     return w / (8 / effectiveZoom);
   });
 
-  const gridDrag = useGridDrag(deck, "x", () => (canvasRef.current?.clientWidth ?? 1) / (8 / effectiveZoom));
-
   return (
-    <div className={`relative w-full h-full bg-background ${settings.waveHighContrast ? "wave-high-contrast" : ""}`} style={{ touchAction: "none" }} {...(editingGrid ? gridDrag : settings.waveScratch ? scratch : {})}>
-      <canvas ref={canvasRef} className="w-full h-full block"  />
+    <div className={`relative w-full h-full bg-background ${settings.waveHighContrast ? "wave-high-contrast" : ""}`} style={{ touchAction: "none" }} {...(settings.waveScratch ? scratch : {})}>
+      <canvas ref={canvasRef} className="w-full h-full block" /><WaveAnalysisStatus deck={deck} />
 
       <div className="absolute right-1 top-1 flex gap-1">
         <Button variant="ghost"
           onPointerDown={event => event.stopPropagation()}
-          aria-label={`Zoom in deck ${deck.id}`} onClick={() => setZoom((z) => Math.min(16, z * 1.4))}
+          onClick={() => setZoom((z) => Math.min(4, z * 1.4))}
           className="dj-glass size-6 p-0 rounded-md text-muted-foreground"
         >
           <ZoomIn className="w-3 h-3" />
         </Button>
         <Button variant="ghost"
           onPointerDown={event => event.stopPropagation()}
-          aria-label={`Zoom out deck ${deck.id}`} onClick={() => setZoom((z) => Math.max(0.25, z / 1.4))}
+          onClick={() => setZoom((z) => Math.max(0.25, z / 1.4))}
           className="dj-glass size-6 p-0 rounded-md text-muted-foreground"
         >
           <ZoomOut className="w-3 h-3" />
         </Button>
-        <BeatGridEditor deck={deck} editing={editingGrid} onEditing={setEditingGrid} />
-        {editingGrid && <Button variant="default" className="h-6 px-1 text-[9px]" onPointerDown={e => e.stopPropagation()} onClick={() => setEditingGrid(false)}>Done</Button>}
       </div>
     </div>
   );

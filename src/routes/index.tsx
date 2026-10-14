@@ -14,6 +14,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAppMode } from "@/hooks/useAppMode";
 import { Waveform } from "@/components/dj/Waveform";
 import { Crossfader } from "@/components/dj/Crossfader";
+import { StudioView } from "@/components/dj/StudioView";
 import { AutomixView } from "@/components/dj/AutomixView";
 import { getAutomix } from "@/lib/dj/automix";
 import { FourDeckLayout } from "@/components/dj/FourDeckLayout";
@@ -44,6 +45,12 @@ function DjApp() {
   const [mode, setMode] = useAppMode();
   const [splashDone, setSplashDone] = useState(false);
   const [automixOpen, setAutomixOpen] = useState(false);
+  const [studioOpen, setStudioOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setStudioOpen(true);
+    window.addEventListener("dj:studio", open);
+    return () => window.removeEventListener("dj:studio", open);
+  }, []);
   const changeMode = (next: typeof mode) => { if (mixer) getAutomix(mixer).stop(); setMode(next); };
   const pair = useActivePair(mixer);
   const fourDeck = useSyncExternalStore(
@@ -63,6 +70,7 @@ function DjApp() {
   return (
     <>
       {mixer && automixOpen && <AutomixView mixer={mixer} onClose={() => { getAutomix(mixer).stop(); setAutomixOpen(false); }} />}
+      {mixer && studioOpen && <StudioView mixer={mixer} onClose={() => setStudioOpen(false)} />}
       {!splashDone && <Splash onDone={() => setSplashDone(true)} />}
       {!mixer || !decks ? (
         <div className="fixed inset-0 bg-background text-foreground flex items-center justify-center">

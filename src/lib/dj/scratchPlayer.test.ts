@@ -65,4 +65,20 @@ describe("scratch audio", () => {
     for (let i = 0; i < 3; i++) block();
     expect(node.target).toBe(-1);
   });
+  it("follows a timestamped hand path exactly, including a reversal, without overshoot", () => {
+    const { node, message, block, clock } = processor();
+    message({ type: "buffer", channels: [new Float32Array(96000).buffer] });
+    message({ type: "start", pos: 0.5, rate: 0 });
+    // Hand: forward 0.2 s over 100 ms, then back 0.2 s over 100 ms (60 Hz touch samples).
+    const hand = (t: number) => 0.5 + (t < 0.1 ? t * 2 : Math.max(0, 0.2 - (t - 0.1) * 2));
+    let next = 0, maxPos = 0;
+    for (let i = 0; i < 120; i++) {
+      if (clock.currentTime >= next && next <= 0.2) { message({ type: "point", pos: hand(next), when: next }); next += 1 / 60; }
+      block();
+      maxPos = Math.max(maxPos, node.pos / 48000);
+    }
+    expect(maxPos).toBeLessThan(0.7 + 0.002);
+    expect(maxPos).toBeGreaterThan(0.69);
+    expect(Math.abs(node.pos / 48000 - 0.5)).toBeLessThan(0.002);
+  });
 });

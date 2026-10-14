@@ -1,47 +1,36 @@
 # Task roadmap
 
-## October 13 scratch and Studio upgrade
-- [ ] Improve hand-position scratch accuracy and test reversals, holds and release with loaded audio.
-- [ ] Research freely licensed scratch references without copying incompatible native code.
-- [ ] Remove mixer overview volume sliders; add blue value arcs and split portrait SET/cue controls; restyle shared faders.
-- [ ] Add Settings Studio/DAW workspace with working audio import, arrangement and playback controls.
-- [ ] Verify Studio and DJ controls in portrait and landscape; report Android/device-only limitations.
+## October 14 compact Studio and scratch
+- [ ] Improve sample-based scratch hand tracking and verify loaded audio.
+- [ ] Compact Studio, independent split-clip fades/reverse, round stretch handles, and playhead-anchored zoom.
+- [ ] Use supplied bold portrait logo in light and dark themes.
+- [ ] Run editing/audio tests and verify Studio on desktop and portrait.
 
-## Current full-spectrum and scratch regression
-- [ ] Repair full-spectrum colors at every zoom without changing zigzag geometry.
-- [ ] Repair position-locked scratch response and test signal continuity.
-- [ ] Review Mixxx native implementation as reference; preserve the browser runtime.
-- [ ] Verify grid-snapped hot cues and sync behavior with regression tests and loaded audio.
+## October 14 uploaded scratch and Android request
+- [ ] Integrate uploaded scratch controller/worklet, attach platter, and connect crossfader gain without duplicate attenuation.
+- [x] Use supplied portrait splash and narrow/tall less-rounded crossfader handle.
+- [ ] Prepare Android wrapper while preserving the supported web interface; native rewrite is not supported here.
+- [ ] Verify loaded-track scratch, gain, artwork, and tests; Android device verification requires hardware.
 
-## AI track structure and cue recommendations
-- [ ] Add in-app audio analysis using AI Gateway with structure and recommended mixing cue points.
-- [ ] Verify analysis and applying suggested cues; report any external service blocker.
+## October 14 active request
+- [ ] Match Extended, Combat Dark/Light platters and thicker mixer knob rings to references.
+- [ ] Diagnose and improve audible jog scratch responsiveness with regression tests.
+- [ ] Studio: per-track FX, detailed grids, long-press edit/paste, ±24 pitch, reverse, drag placement and stretch, snap/sync and two-finger zoom.
+- [ ] Verify Studio editing and mixer rendering; document Android hardware limitations.
 
-## Current waveform palette restoration
-- [x] Copy only the original full-spectrum RGB colors from the specified previous project; retain zigzag geometry and controls.
-- [x] Verify shared waveform rendering and existing stem/audio regressions.
-
-## October 12 waveform, scratch and mixer corrections
-- [ ] Restore RGB and automatic zoomed zigzags across waveform lanes.
-- [ ] Fix jog position continuity and scratch ticking; run audio regressions.
-- [ ] Add paired thin square VU columns; enlarge filter/EQ controls and tighten labels.
-- [ ] Hide mixer overview in video and contain controls above crossfader.
-- [ ] Add editable beat-grid markers and BPM controls; verify both orientations.
-
-## October 11 scratch and reference controls
-- [ ] Remove scratch ticking while keeping sharp, position-locked jog response.
-- [ ] Add accessible DNA editing and selection of the scratch starting point.
-- [ ] Make all waveform views follow muted stem levels, including green vocals.
-- [ ] Add a working queue-based Automix view accessible from Settings.
-- [ ] Match reference mixer/library controls and Settings on/off switches; retain portrait logo.
-- [ ] Verify audio processing, loaded-track controls and portrait/landscape layouts.
+## October 13 requested refinements
+- [ ] Restrict jog styles to seven and provide djay-inspired platter designs and dropdown.
+- [ ] Remove colorful pricing artwork; compact knob rings and rounded neutral crossfader; double-click resets.
+- [ ] Generate fallback track artwork and show streaming service choices (playback unavailable).
+- [ ] Enable decoded-track playback before analysis completes; show progress and RGB overview waveforms.
+- [ ] Diagnose and improve scratch timing with regression tests and preview checks.
 
 ## October 11 playback and mixer
-- [x] Remove A/V from the FX library.
-- [x] Improve continuous jog scratching and native Android position control.
-- [x] Correct Bluetooth stream recovery (APK video clock still open).
+- [ ] Remove A/V from the FX library.
+- [ ] Improve continuous jog scratching and native Android position control.
+- [ ] Correct Bluetooth stream recovery and APK video clock handling.
 - [ ] Improve beat-grid sync and expose key lock beside Pitch Cue.
-- [x] Match neutral mixer knobs, paired segmented meters and crossfader.
+- [ ] Match neutral mixer knobs, paired segmented meters and crossfader.
 - [ ] Run tests and preview checks; document device-only verification.
 
 ## Current FX refinements

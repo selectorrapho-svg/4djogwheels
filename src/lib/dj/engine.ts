@@ -1,7 +1,9 @@
+import { computeBandedPeaks, type BandedPeaks } from "./peaks";
+import { analyzeWaveform } from "./waveAnalysis";
 import { native, isNative } from "./nativeAudio";
 import { ScratchPlayer } from "./scratchPlayer";
 import { correctedGrid, snapToBeat } from "./beatGrid";
-import { crossfaderGains, coastTau, DEFAULT_SCRATCH, type ScratchSettings, type XfCurve } from "./scratchMath";
+import { crossfaderGains, freeSpinTau, DEFAULT_SCRATCH, type ScratchSettings, type XfCurve } from "./scratchMath";
 const scratchCfg = (): ScratchSettings => ({ ...DEFAULT_SCRATCH, ...((globalThis as { __djScratch?: Partial<ScratchSettings> }).__djScratch ?? {}) });
 import { analyzeTrackBeats } from "./beatAnalysis";
 import { DEFAULT_RECORDING, recordingProfile, type RecordingOptions } from "./recording";
@@ -218,6 +220,9 @@ export class Deck {
   fxBeatOverrides: Record<string, number> = {};
   private nativePositionBusy = false;
   private lastNativePosition = 0;
+  wavePeaks: BandedPeaks | null = null;
+  analysisProgress = 0;
+  analyzing = false;
   bpm = 0;
   /** Seconds of the first beat (MixCN beat grid) — used for phase sync. */
   firstBeat = 0;
@@ -421,6 +426,8 @@ export class Deck {
   async loadUrl(url: string, name: string, coverUrl: string | null = null) {
     ++this.loadToken;
     this.pause();
+    this.buffer = null;
+    this.wavePeaks = null;
     this.trackName = name;
     this.coverUrl = coverUrl;
     this.videoEl?.pause();
@@ -430,14 +437,15 @@ export class Deck {
       return;
     }
     const res = await fetch(url);
+    if (!res.ok) throw new Error("Track download failed.");
     const ab = await res.arrayBuffer();
     void native.load(this.id, ab.slice(0));
     this.buffer = await this.ctx.decodeAudioData(ab);
-    this.reverseBuffer = makeReversedBuffer(this.ctx, this.buffer);
+    this.reverseBuffer = null;
     this.pausedAt = 0;
     this.cuePoint = 0;
     this.hotCues = Array(8).fill(null);
-    this.bpm = estimateBpm(this.buffer);
+    this.bpm = 0;
     this.firstBeat = 0;
     if (this.buffer) void this.scratchPlayer?.prime(this.buffer);
     this.afterLoad();
@@ -472,18 +480,44 @@ export class Deck {
     this.resetStemRouting();
     const buf = this.buffer;
     if (!buf) return;
-    void analyzeTrackBeats(buf).then((g) => {
-      if (token !== this.loadToken || revision !== this.gridRevision || !g || !g.bpm) return;
-      this.bpm = Math.round(g.bpm * 100) / 100;
-      this.firstBeat = g.firstBeat;
-      this.emit();
-    });
+    this.analyzing = true;
+    this.analysisProgress = 0;
+    this.emit();
+    // Let the decoded track become playable before preparing analysis input.
+    setTimeout(() => {
+      if (token !== this.loadToken) return;
+      void this.analyzeWave(buf, token);
+      void analyzeTrackBeats(buf).then((g) => {
+        if (token !== this.loadToken || revision !== this.gridRevision || !g?.bpm) return;
+        this.bpm = Math.round(g.bpm * 100) / 100;
+        this.firstBeat = g.firstBeat;
+        this.emit();
+      }).catch(() => {});
+    }, 0);
     this.stemStatus = !isPro() ? "locked" : !stemsSupported() || buf.numberOfChannels > 2 ? "unsupported" : "loading";
     void separateStems(buf).then((res) => {
       if (token !== this.loadToken) return;
       if (!res) { if (this.stemStatus === "loading") this.stemStatus = "unsupported"; this.emit(); return; }
       this.applyRealStems(res);
     }).catch(() => { if (token === this.loadToken) { this.stemStatus = "error"; this.emit(); } });
+  }
+
+  private async analyzeWave(buf: AudioBuffer, token: number) {
+    this.analyzing = true;
+    try {
+      const peaks = await analyzeWaveform(buf, value => {
+        if (token !== this.loadToken) return;
+        this.analysisProgress = value;
+        this.emit();
+      });
+      if (token !== this.loadToken) return;
+      this.wavePeaks = peaks;
+      this.analysisProgress = 1;
+    } catch {
+      // Analysis failure must never stop playback.
+    } finally {
+      if (token === this.loadToken) { this.analyzing = false; this.emit(); }
+    }
   }
 
   private resetStemRouting() {
@@ -529,7 +563,9 @@ export class Deck {
     });
     this.stemSplitter = splitter;
     this.buffer = multi;
-    this.reverseBuffer = makeReversedBuffer(this.ctx, multi);
+    this.reverseBuffer = null;
+    this.wavePeaks = null;
+    void this.analyzeWave(multi, this.loadToken);
     this.realStems = true;
     this.stemStatus = "ready";
     this.pausedAt = pos;
@@ -548,6 +584,8 @@ export class Deck {
   async loadFile(file: File, coverUrl: string | null = null) {
     ++this.loadToken;
     this.pause();
+    this.buffer = null;
+    this.wavePeaks = null;
     if (this.coverUrl?.startsWith("blob:") && this.coverUrl !== coverUrl) URL.revokeObjectURL(this.coverUrl);
     this.coverUrl = coverUrl;
     this.videoEl?.pause();
@@ -561,7 +599,7 @@ export class Deck {
       try {
         void native.load(this.id, ab.slice(0));
         this.buffer = await this.ctx.decodeAudioData(ab.slice(0));
-        this.reverseBuffer = this.buffer ? makeReversedBuffer(this.ctx, this.buffer) : null;
+        this.reverseBuffer = null;
       } catch {
         // Browsers do not decode every video codec through Web Audio. In that
         // case the media element itself is the clock and audible source.
@@ -573,12 +611,12 @@ export class Deck {
       const ab = await file.arrayBuffer();
       void native.load(this.id, ab.slice(0));
       this.buffer = await this.ctx.decodeAudioData(ab);
-      this.reverseBuffer = makeReversedBuffer(this.ctx, this.buffer);
+      this.reverseBuffer = null;
     }
     this.pausedAt = 0;
     this.cuePoint = 0;
     this.hotCues = Array(8).fill(null);
-    this.bpm = estimateBpm(this.buffer);
+    this.bpm = 0;
     this.firstBeat = 0;
     if (this.buffer) void this.scratchPlayer?.prime(this.buffer);
     this.afterLoad();
@@ -1143,32 +1181,49 @@ export class Deck {
     this.scrubVideo();
   }
 
+  /** True while the hand holds the platter or it is still free-spinning. */
+  get isScratching() { return this.scratching; }
+
+  /** True when the browser worklet can replay time-stamped hand paths. */
+  get pathScratch() { return !isNative() && !!this.scratchPlayer?.available; }
+
+  /** Hand-trajectory scratch: platter position at a pointer event timestamp. */
+  scratchPath(pos: number, eventTime: number) {
+    if (!this.buffer) return;
+    if (!this.scratching) this.scratchStart();
+    const p = Math.max(0, Math.min(this.duration, pos));
+    this.releaseToken++;
+    this.scratchPos = p;
+    this.scratchPlayer?.pushPoint(p, eventTime);
+    this.scrubVideo();
+  }
+
   private releaseToken = 0;
   /** Platter released: motor spin-up, instant play or coast with friction. */
-  releaseScratch() {
+  releaseScratch(handVel = 0) {
     if (!this.scratching) return;
     const cfg = scratchCfg();
     const sp = this.scratchPlayer;
-    if (isNative() || !sp?.available || cfg.release === "instant") { this.endScratch(); return; }
+    if (isNative() || !sp?.available) { this.endScratch(); return; }
     const token = ++this.releaseToken;
+    const exit = Number.isFinite(handVel) && Math.abs(handVel) > 0.05 ? handVel : sp.liveRate;
     if (this.wasPlayingBeforeScratch) {
+      if (cfg.release === "instant") { this.endScratch(); return; }
+      // Flung while playing: leave the hand at its speed, then the motor pulls it back.
       const tau = Math.max(0.001, cfg.inertia / 3);
-      sp.motor(this.rate, tau);
+      sp.motor(this.rate, tau, Math.abs(exit) > 0.3 ? exit : undefined);
       window.setTimeout(() => { if (token === this.releaseToken) this.endScratch(); }, cfg.inertia * 1000 + 20);
-    } else if (cfg.release === "spin") {
-      // Backspin: fling the platter at the hand's exit speed (boosted), then
-      // let friction coast it to a stop — like slapping a real record backwards.
-      const fling = Math.max(-8, Math.min(8, sp.liveRate * 1.6));
-      const tau = coastTau(cfg.friction) * 1.5;
-      sp.motor(fling, tau);
-      window.setTimeout(() => { if (token === this.releaseToken) this.endScratch(); }, tau * 4000);
-    } else if (cfg.release === "coast" || Math.abs(sp.liveRate) > 0.3) {
-      const tau = coastTau(cfg.friction);
-      sp.motor(0, tau);
-      window.setTimeout(() => { if (token === this.releaseToken) this.endScratch(); }, tau * 4000);
-    } else {
-      this.endScratch();
+      return;
     }
+    if (Math.abs(exit) < 0.25 && cfg.release !== "spin") { this.endScratch(); return; }
+    // Free-spinning platter (CrossDJ / djay style): keeps turning at the
+    // fling speed and slows down with the platter friction setting.
+    const boost = cfg.release === "spin" ? 1.4 : 1;
+    const v = Math.max(-12, Math.min(12, exit * boost));
+    const tau = freeSpinTau(cfg.friction);
+    sp.motor(0, tau, v);
+    const ms = tau * Math.log(Math.max(1.5, Math.abs(v) / 0.02)) * 1000;
+    window.setTimeout(() => { if (token === this.releaseToken) this.endScratch(); }, Math.min(12000, ms + 30));
   }
 
   private scrubVideo() {
@@ -1896,104 +1951,8 @@ function estimateBpm(buf: AudioBuffer | null): number {
   return bestBpm ? Math.round(bestBpm * 10) / 10 : 0;
 }
 
-export interface BandedPeaks {
-  sub: Float32Array;
-  bass: Float32Array;
-  lowMid: Float32Array;
-  mid: Float32Array;
-  high: Float32Array;
-  presence: Float32Array;
-  overall: Float32Array;
-}
-
-// Six frequency bands from both channels. These are spectral energy envelopes,
-// not separated instrumental/vocal source tracks.
-const peakCache = new WeakMap<AudioBuffer, Map<number, BandedPeaks>>();
-export function computeBandedPeaks(buffer: AudioBuffer, bins: number): BandedPeaks {
-  const cached = peakCache.get(buffer)?.get(bins);
-  if (cached) return cached;
-  if (buffer.numberOfChannels === 8) {
-    const peaks: BandedPeaks = { overall: new Float32Array(bins), sub: new Float32Array(bins), bass: new Float32Array(bins), lowMid: new Float32Array(bins), mid: new Float32Array(bins), presence: new Float32Array(bins), high: new Float32Array(bins) };
-    // Real separated stereo pairs: drums, bass, harmonic, vocals.
-    STEM_ORDER.forEach((stem, pair) => {
-      const left = buffer.getChannelData(pair * 2), right = buffer.getChannelData(pair * 2 + 1);
-      const band = stem === "drums" ? peaks.lowMid : stem === "bass" ? peaks.bass : stem === "vocals" ? peaks.mid : peaks.high;
-      for (let bin = 0; bin < bins; bin++) {
-        const start = Math.floor(bin * buffer.length / bins), end = Math.floor((bin + 1) * buffer.length / bins);
-        let energy = 0;
-        for (let i = start; i < end; i++) energy = Math.max(energy, Math.abs(left[i]), Math.abs(right[i]));
-        band[bin] = energy; peaks.overall[bin] += energy;
-      }
-    });
-    const cache = peakCache.get(buffer) ?? new Map<number, BandedPeaks>();
-    cache.set(bins, peaks); peakCache.set(buffer, cache); return peaks;
-  }
-  const data = buffer.getChannelData(0);
-  const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : data;
-  const sr = buffer.sampleRate;
-  const cutoffs = [110, 420, 1800, 5200, 9500];
-  const states = [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]];
-  const coefficients = cutoffs.map(c => Math.exp(-2 * Math.PI * c / sr));
-  const sub = new Float32Array(bins);
-  const bass = new Float32Array(bins);
-  const lowMid = new Float32Array(bins);
-  const mid = new Float32Array(bins);
-  const high = new Float32Array(bins);
-  const presence = new Float32Array(bins);
-  const overall = new Float32Array(bins);
-  for (let i = 0; i < bins; i++) {
-    let s = 0, b = 0, lm = 0, m = 0, p = 0, h = 0, o = 0;
-    const start = Math.floor(i * data.length / bins);
-    const end = Math.min(data.length, Math.floor((i + 1) * data.length / bins));
-    // Filter at the original sample rate: skipping samples aliases cymbals
-    // and vocals into bass. Measure each stereo channel before combining so
-    // out-of-phase content cannot disappear from the spectral display.
-    const a = coefficients;
-    for (let j = start; j < end; j++) {
-      for (let channel = 0; channel < 2; channel++) {
-      const x = channel === 0 ? data[j] : right[j];
-      const lp = states[channel];
-      lp[0] = a[0] * lp[0] + (1 - a[0]) * x;
-      lp[1] = a[1] * lp[1] + (1 - a[1]) * x;
-      lp[2] = a[2] * lp[2] + (1 - a[2]) * x;
-      lp[3] = a[3] * lp[3] + (1 - a[3]) * x;
-      lp[4] = a[4] * lp[4] + (1 - a[4]) * x;
-      const bSub = lp[0];
-      const bBass = lp[1] - lp[0];
-      const bLowMid = lp[2] - lp[1];
-      const bMid = lp[3] - lp[2];
-      const bPresence = lp[4] - lp[3];
-      const bHigh = x - lp[4];
-      const as = Math.abs(bSub);
-      const ab = Math.abs(bBass);
-      const alm = Math.abs(bLowMid);
-      const am = Math.abs(bMid);
-      const ah = Math.abs(bHigh);
-      const ap = Math.abs(bPresence);
-      const ao = Math.abs(x);
-      if (as > s) s = as;
-      if (ab > b) b = ab;
-      if (alm > lm) lm = alm;
-      if (am > m) m = am;
-      if (ah > h) h = ah;
-      if (ap > p) p = ap;
-      if (ao > o) o = ao;
-      }
-    }
-    sub[i] = s;
-    bass[i] = b;
-    lowMid[i] = lm;
-    mid[i] = m;
-    high[i] = h;
-    presence[i] = p;
-    overall[i] = o;
-  }
-  const result = { sub, bass, lowMid, mid, presence, high, overall };
-  const cache = peakCache.get(buffer) ?? new Map<number, BandedPeaks>();
-  cache.set(bins, result);
-  peakCache.set(buffer, cache);
-  return result;
-}
+export { computeBandedPeaks } from "./peaks";
+export type { BandedPeaks } from "./peaks";
 
 export function computeWaveformPeaks(buffer: AudioBuffer, bins: number): Float32Array {
   return computeBandedPeaks(buffer, bins).overall;

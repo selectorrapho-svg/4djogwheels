@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Deck } from "@/lib/dj/engine";
 import { useDjSettings } from "@/hooks/useDjSettings";
-import { angleToSeconds } from "@/lib/dj/scratchMath";
+import { angleToSeconds, releaseVelocity } from "@/lib/dj/scratchMath";
 
 interface Props {
   deck: Deck;
@@ -12,17 +12,11 @@ interface Props {
 // Bundled locally (not CDN) so the jog skins also work fully offline in the APK.
 import jogPioneer from "@/assets/jogs/jog-pioneer.jpeg";
 import jogNeonDisc from "@/assets/jogs/jog-neon-disc.webp";
-import neonArm from "@/assets/jogs/neon_skin_tete_de_lecture.jpg.asset.json";
 import unloadedJog from "@/assets/jogs/jog-unloaded.png.asset.json";
-import raneJog from "@/assets/jogs/rane-inspired.png";
 
-const VINYL_ARM: Record<string, string> = { neonVinyl: neonArm.url };
 const JOG_IMAGE: Record<string, string | undefined> = {
-  pioneer: jogPioneer,
   pioneer3d: jogPioneer,
-  neonDisc: jogNeonDisc,
   neonDisc3d: jogNeonDisc,
-  rane: raneJog,
 };
 // 3D variants keep the same skin art but add sculpted gloss + depth shading.
 const JOG_3D = new Set(["pioneer3d", "neonDisc3d"]);
@@ -41,10 +35,13 @@ export function JogWheel({ deck, size, accent }: Props) {
   const ringRef = useRef<HTMLDivElement>(null);
   const timeRef = useRef<HTMLSpanElement>(null);
   const bpmRef = useRef<HTMLSpanElement>(null);
+  const remainingRef = useRef<HTMLSpanElement>(null);
+  const pitchRef = useRef<HTMLSpanElement>(null);
   const last = useRef({ angle: 0, t: 0, scratching: false });
   const vel = useRef(0);
   const rotRef = useRef(0);
   const lastFrame = useRef(0);
+  const handDown = useRef(false);
 
   // Resolve the skin image with a graceful fallback: if the configured asset
   // fails to load, try a known-good skin, then fall back to the flat colour.
@@ -82,8 +79,10 @@ export function JogWheel({ deck, size, accent }: Props) {
     const loop = (now: number) => {
       const dt = lastFrame.current ? Math.min(0.05, (now - lastFrame.current) / 1000) : 0;
       lastFrame.current = now;
-      const canSpin = (!!deck.buffer || !!deck.videoEl) && (deck.playing || deck.scratchingVideo);
-      if (canSpin) {
+      const canSpin = (!!deck.buffer || !!deck.videoEl) && (deck.playing || deck.scratchingVideo || deck.isScratching);
+      if (handDown.current) {
+        // Hand on the platter: the picture follows the finger only.
+      } else if (canSpin) {
         rotRef.current = (deck.currentTime * 200) % 360;
       }
       const r = `rotate(${rotRef.current}deg)`;
@@ -93,6 +92,8 @@ export function JogWheel({ deck, size, accent }: Props) {
         lastReadout = now;
         timeRef.current.textContent = fmt(deck.currentTime);
         if (bpmRef.current) bpmRef.current.textContent = deck.bpm ? (deck.bpm * deck.rate).toFixed(1) : "—";
+        if (remainingRef.current) remainingRef.current.textContent = fmt(deck.currentTime - deck.duration);
+        if (pitchRef.current) pitchRef.current.textContent = `${((deck.rate - 1) * 100).toFixed(1)}%`;
       }
       raf = requestAnimationFrame(loop);
     };
@@ -114,7 +115,10 @@ export function JogWheel({ deck, size, accent }: Props) {
     // Absolute platter model: cumulative hand angle since touch-down maps 1:1
     // to a track position, so the audio is position-locked (no velocity drift).
     let startPos = 0;
+    let relTok = 0;
     let cum = 0;
+    // Recent (time, angle) pairs: the fling speed at release drives free spin.
+    const hist: number[] = [];
     const down = (e: PointerEvent) => {
       if (!deck.buffer || pointerId !== -1) return;
       const box = el.getBoundingClientRect();
@@ -126,11 +130,15 @@ export function JogWheel({ deck, size, accent }: Props) {
       last.current = { angle: ang(e.clientX, e.clientY), t: e.timeStamp, scratching: true };
       vel.current = 0;
       cum = 0;
+      hist.length = 0;
       const cfg = (globalThis as { __djScratch?: { vinylMode?: boolean } }).__djScratch;
       if (cfg?.vinylMode === false && deck.playing) { last.current.scratching = false; return; }
+      relTok++;
       startPos = deck.currentTime;
+      handDown.current = true;
       deck.scratchStart();
-      deck.scratchTo(startPos, 0);
+      if (deck.pathScratch) deck.scratchPath(startPos, e.timeStamp);
+      else deck.scratchTo(startPos, 0);
       startLoop();
     };
     // Frame-clocked scratch (same model as the waveform): pointer events only
@@ -153,8 +161,7 @@ export function JogWheel({ deck, size, accent }: Props) {
       vel.current = v;
       // The audio servo is the only smoothing stage. A second predictive
       // filter here overshoots reversals and scratches beyond the hand.
-      const meas = startPos + angleToSeconds(cum, sens());
-      deck.scratchTo(meas, v);
+      if (!deck.pathScratch) deck.scratchTo(startPos + angleToSeconds(cum, sens()), v);
       rotRef.current = (((rotStart + (cum * 180) / Math.PI) % 360) + 360) % 360;
     };
     const startLoop = () => {
@@ -165,7 +172,7 @@ export function JogWheel({ deck, size, accent }: Props) {
       raf = requestAnimationFrame(tick);
     };
     const stopLoop = () => { cancelAnimationFrame(raf); raf = 0; };
-    const accumulate = (x: number, y: number) => {
+    const accumulate = (x: number, y: number, ts?: number) => {
       // Spindle: no meaningful angle there; hold the record still.
       if (Math.hypot(x - c.x, y - c.y) < radius * 0.12) { last.current.angle = ang(x, y); return; }
       const a = ang(x, y);
@@ -174,6 +181,10 @@ export function JogWheel({ deck, size, accent }: Props) {
       if (d < -Math.PI) d += 2 * Math.PI;
       cum += d;
       last.current.angle = a;
+      const now = ts ?? performance.now();
+      hist.push(now, cum);
+      while (hist.length > 4 && now - hist[0] > 60) hist.splice(0, 2);
+      if (ts !== undefined && deck.pathScratch) deck.scratchPath(startPos + angleToSeconds(cum, sens()), ts);
     };
     const move = (e: PointerEvent) => {
       if (e.pointerId !== pointerId) return;
@@ -190,20 +201,25 @@ export function JogWheel({ deck, size, accent }: Props) {
       if (!deck.buffer) return;
       // Walk every coalesced sample so fast flicks keep their full travel.
       const evts = e.getCoalescedEvents?.() ?? [];
-      if (evts.length) for (const ev of evts) accumulate(ev.clientX, ev.clientY);
-      else accumulate(e.clientX, e.clientY);
+      if (evts.length) for (const ev of evts) accumulate(ev.clientX, ev.clientY, ev.timeStamp);
+      else accumulate(e.clientX, e.clientY, e.timeStamp);
     };
     const up = (e: PointerEvent) => {
       if (e.pointerId !== pointerId) return;
       const was = last.current.scratching;
       if (was) {
-        accumulate(e.clientX, e.clientY);
-        deck.scratchTo(startPos + angleToSeconds(cum, sens()), vel.current);
+        accumulate(e.clientX, e.clientY, e.timeStamp);
+        if (!deck.pathScratch) deck.scratchTo(startPos + angleToSeconds(cum, sens()), vel.current);
       }
       last.current.scratching = false;
       pointerId = -1;
+      handDown.current = false;
       stopLoop();
-      if (was) deck.releaseScratch();
+      if (!was) return;
+      // Let the delayed hand path finish playing before the motor takes over.
+      const fling = releaseVelocity(hist, performance.now(), sens());
+      const tok = ++relTok;
+      window.setTimeout(() => { if (tok === relTok && pointerId === -1) deck.releaseScratch(fling); }, deck.pathScratch ? 18 : 0);
     };
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointermove", move);
@@ -232,20 +248,22 @@ export function JogWheel({ deck, size, accent }: Props) {
 
   const loaded = !!deck.buffer || !!deck.videoEl;
   const is3d = JOG_3D.has(s.jogStyle);
-  const arm = VINYL_ARM[s.jogStyle];
-  const isVinyl = !!arm;
+  const referenceReadout = ["combatDark", "combatLight", "extended"].includes(s.jogStyle);
+
 
   return (
-    <div className="reference-jog extended-jog" style={{ width: size, maxWidth: "100%" }}>
+    <div data-jog-style={s.jogStyle} className="reference-jog extended-jog" style={{ width: size, maxWidth: "100%" }}>
       <div ref={ref} data-loaded={loaded} role="slider" aria-label={`Scratch deck ${deck.id}`} aria-valuemin={0} aria-valuemax={deck.duration} aria-valuenow={deck.currentTime} className="relative aspect-square w-full touch-none select-none">
         <div ref={ringRef} data-skin={s.jogStyle} className={`jog-skin absolute inset-0 pointer-events-none will-change-transform rounded-full ${is3d ? "jog-depth" : ""}`}>
            {skin ? <img src={skin} alt={`${s.jogStyle} jogwheel`} width={1024} height={1024} loading="lazy" draggable={false} className="size-full rounded-full object-contain" /> : s.jogStyle === "silver" ? <img src={unloadedJog.url} alt="Dark silver jogwheel" draggable={false} className="size-full rounded-full object-contain" /> : <><div className="jog-grooves" /><div className="jog-label" /></>}
-          {isVinyl && <img src={arm} alt="" draggable={false} className="jog-tonearm" />}
-          {loaded && deck.coverUrl && <img src={deck.coverUrl} alt="" draggable={false} className="jog-album-art" onError={e => { e.currentTarget.style.display = "none"; }} />}
+          {!skin && s.jogStyle !== "silver" && <div className="platter-index" />}
+          {!referenceReadout && loaded && deck.coverUrl && <img src={deck.coverUrl} alt="" draggable={false} className="jog-album-art" onError={e => { e.currentTarget.style.display = "none"; }} />}
         </div>
         <div className="jog-readout pointer-events-none" data-loaded={loaded}>
-          {!deck.coverUrl && <><span ref={bpmRef} className="jog-readout-bpm">{deck.bpm ? (deck.bpm * deck.rate).toFixed(1) : "—"}</span><span className="jog-readout-label">BPM</span></>}
+          {referenceReadout && <span ref={pitchRef} className="jog-readout-pitch">{((deck.rate - 1) * 100).toFixed(1)}%</span>}
+          {(referenceReadout || !deck.coverUrl) && <><span ref={bpmRef} className="jog-readout-bpm">{deck.bpm ? (deck.bpm * deck.rate).toFixed(1) : "—"}</span>{!referenceReadout && <span className="jog-readout-label">BPM</span>}</>}
           <span ref={timeRef} className="jog-readout-time">{fmt(deck.currentTime)}</span>
+          {referenceReadout && <span ref={remainingRef} className="jog-readout-remaining">{fmt(deck.currentTime - deck.duration)}</span>}
         </div>
       </div>
     </div>

@@ -6,6 +6,24 @@ export interface StudioClip {
   gain: number;
   mute: boolean;
   solo: boolean;
+  lane?: number;
+  /** Output duration multiplier; pitch is independently rendered before playback. */
+  stretch?: number;
+  pitch?: number;
+  reverse?: boolean;
+  fx?: "none" | "lowpass" | "highpass" | "echo" | "drive";
+}
+
+export function clipDuration(clip: StudioClip) { return clip.buffer.duration * (clip.stretch ?? 1); }
+export function studioPitch(value: number) { return Math.max(-24, Math.min(24, Math.round(value))); }
+export function studioPlacement(beat: number, snap: boolean, subdivision = 1) {
+  return Math.max(0, snap ? Math.round(beat / subdivision) * subdivision : beat);
+}
+export function studioGridStep(pixelsPerBeat: number) {
+  return pixelsPerBeat >= 160 ? 0.125 : pixelsPerBeat >= 80 ? 0.25 : pixelsPerBeat >= 40 ? 0.5 : 1;
+}
+export function syncClip(clip: StudioClip, bpm: number, beats = Math.max(1, Math.round(clipDuration(clip) * bpm / 60))): StudioClip {
+  return { ...clip, stretch: Math.max(0.125, Math.min(8, beats * 60 / bpm / clip.buffer.duration)) };
 }
 
 /** One timeline in seconds, shared by live playback and offline export. */
@@ -16,13 +34,13 @@ export function studioSchedule(clips: StudioClip[], bpm: number, from = 0) {
     if (clip.mute || (solo && !clip.solo)) return [];
     const start = Math.max(0, clip.startBeat) * beat;
     const offset = Math.max(0, from - start);
-    if (offset >= clip.buffer.duration) return [];
+    if (offset >= clipDuration(clip)) return [];
     return [{ clip, delay: Math.max(0, start - from), offset }];
   });
 }
 
 export function studioDuration(clips: StudioClip[], bpm: number) {
-  return clips.reduce((end, c) => Math.max(end, c.startBeat * 60 / bpm + c.buffer.duration), 0);
+  return clips.reduce((end, c) => Math.max(end, c.startBeat * 60 / bpm + clipDuration(c)), 0);
 }
 
 export function studioWav(buffer: AudioBuffer) {
@@ -40,4 +58,25 @@ export function studioWav(buffer: AudioBuffer) {
     view.setInt16(44 + (i * channels + c) * 2, v * (v < 0 ? 32768 : 32767), true);
   }
   return new Blob([data], { type: 'audio/wav' });
+}
+/** Copy a [from, to) seconds slice of a buffer into a new buffer (used by split/cut). */
+export function sliceBuffer(buffer: AudioBuffer, from: number, to: number): AudioBuffer {
+  const sr = buffer.sampleRate;
+  const a = Math.max(0, Math.min(buffer.length, Math.round(from * sr)));
+  const b = Math.max(a + 1, Math.min(buffer.length, Math.round(to * sr)));
+  const out = new AudioBuffer({ length: b - a, numberOfChannels: buffer.numberOfChannels, sampleRate: sr });
+  for (let c = 0; c < buffer.numberOfChannels; c++) out.copyToChannel(buffer.getChannelData(c).subarray(a, b), c);
+  return out;
+}
+
+/** Split a clip at an arrangement time (seconds); returns null if the time is outside the clip. */
+export function splitClip(clip: StudioClip, atSec: number, bpm: number, newId: number): [StudioClip, StudioClip] | null {
+  const beat = 60 / bpm;
+  const outputLocal = atSec - clip.startBeat * beat;
+  const local = outputLocal / (clip.stretch ?? 1);
+  if (local <= 0.01 || local >= clip.buffer.duration - 0.01) return null;
+  return [
+    { ...clip, buffer: clip.reverse ? sliceBuffer(clip.buffer, clip.buffer.duration - local, clip.buffer.duration) : sliceBuffer(clip.buffer, 0, local) },
+    { ...clip, id: newId, name: `${clip.name} (2)`, buffer: clip.reverse ? sliceBuffer(clip.buffer, 0, clip.buffer.duration - local) : sliceBuffer(clip.buffer, local, clip.buffer.duration), startBeat: atSec / beat },
+  ];
 }

@@ -1,3 +1,5 @@
+import trackPlaceholder from "@/assets/track-placeholder.jpg";
+import { StreamingServices } from "./StreamingServices";
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { FolderOpen, Music2, Search, X, ChevronDown, MoreHorizontal, ListPlus, ListMusic, Play, Film, LoaderCircle, ArrowDownWideNarrow } from 'lucide-react';
 import { Deck, Mixer } from '@/lib/dj/engine';
@@ -11,7 +13,7 @@ const allDecks = ['A', 'B', 'C', 'D'] as const;
 const empty = { tracks: [], queue: [], playlists: {} };
 export function TrackLibraryOverlay({ open, onClose, deck, mixer, queueOnly = false }: { open: boolean; onClose: () => void; deck?: Deck; mixer?: Mixer; queueOnly?: boolean }) {
   const [query, setQuery] = useState('');
-  const [tab, setTab] = useState<'Songs' | 'Videos' | 'Files' | 'Queue' | 'Playlists'>('Songs');
+  const [tab, setTab] = useState<'Songs' | 'Videos' | 'Files' | 'Queue' | 'Playlists' | 'Streaming'>('Songs');
   const [sort, setSort] = useState('title-asc');
   const [menu, setMenu] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -97,13 +99,13 @@ export function TrackLibraryOverlay({ open, onClose, deck, mixer, queueOnly = fa
         </div>
       </div>
       <div className="flex gap-4 overflow-x-auto border-b border-border px-4 text-sm">
-        {(['Songs','Videos','Files','Queue','Playlists'] as const).map(t => <button key={t} className={`shrink-0 border-b-2 px-1 py-3 ${tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`} onClick={() => { setTab(t); setMenu(null); setLimit(60); }}>{t}</button>)}
+        {(['Songs','Videos','Files','Queue','Playlists','Streaming'] as const).map(t => <button key={t} className={`shrink-0 border-b-2 px-1 py-3 ${tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`} onClick={() => { setTab(t); setMenu(null); setLimit(60); }}>{t}</button>)}
       </div>
       <div className="flex gap-2 mx-4 mt-3"><label className="flex flex-1 h-10 shrink-0 items-center gap-2 rounded-md bg-secondary px-3 text-muted-foreground"><Search className="size-4" /><input className="min-w-0 flex-1 bg-transparent outline-none text-foreground" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search tracks" aria-label="Search tracks" /></label><label className="flex items-center gap-1 bg-secondary px-2 rounded-md text-xs"><ArrowDownWideNarrow className="size-4" /><select aria-label="Sort tracks" className="bg-secondary text-foreground max-w-28 h-10" value={sort} onChange={e => setSort(e.target.value)}><option value="title-asc">Name A–Z</option><option value="title-desc">Name Z–A</option><option value="type">File type</option><option value="added">Added</option><option value="original">Original order</option></select></label></div>
       {error && <p role="status" className="px-4 py-2 text-sm text-primary">{error}</p>}
       <div className="min-h-0 flex-1 overflow-y-auto py-3">
-        {visible.slice(0, limit).map((track, index) => <div key={`${track.filename}-${index}`} className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 px-4 py-2">
-          <div className="grid size-14 place-items-center overflow-hidden rounded-md bg-secondary text-muted-foreground/40">{track.artworkUrl ? <img src={track.artworkUrl} alt="" loading="lazy" decoding="async" onError={e => { e.currentTarget.style.display = 'none'; }} className="size-full object-cover" /> : track.kind === 'video' ? <Film className="size-5" /> : null}</div>
+        {tab === 'Streaming' ? <StreamingServices /> : visible.slice(0, limit).map((track, index) => <div key={`${track.filename}-${index}`} className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 px-4 py-2">
+          <div className="grid size-14 place-items-center overflow-hidden rounded-md bg-secondary text-muted-foreground/40">{track.artworkUrl ? <img src={track.artworkUrl} alt="" loading="lazy" decoding="async" onError={e => { e.currentTarget.style.display = 'none'; }} className="size-full object-cover" /> : track.kind === 'video' ? <Film className="size-5" /> : <img src={trackPlaceholder} alt="Track artwork" className="size-full object-cover" />}</div>
           <button className="min-w-0 text-left" onClick={() => load(track, mixer ? mixer.activeDecks().left.id : undefined)}><span className="block truncate text-sm font-semibold">{track.title}</span><span className="block truncate text-xs text-muted-foreground">{track.bpm ? `${track.bpm.toFixed(1)} BPM · ` : ''}{track.file || track.handle || track.native ? 'This device' : 'MixrdjsPro library'}</span></button>
           <div className="relative"><button className="grid size-9 place-items-center rounded-full bg-secondary" aria-label={`Options for ${track.title}`} onClick={() => setMenu(menu === track.filename ? null : track.filename)}><MoreHorizontal className="size-5" /></button>
             {menu === track.filename && <div className="absolute right-0 top-9 z-20 w-52 rounded-md border border-border bg-popover p-1 shadow-lg text-sm">
@@ -116,7 +118,7 @@ export function TrackLibraryOverlay({ open, onClose, deck, mixer, queueOnly = fa
           </div>
         </div>)}
         {visible.length > limit && <div ref={el => { if (!el) return; const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { io.disconnect(); setLimit(l => l + 60); } }); io.observe(el); }} className="py-4 text-center text-xs text-muted-foreground">Loading more…</div>}
-        {!visible.length && <p className="px-4 py-8 text-center text-sm text-muted-foreground">No tracks here yet. Open a music folder or choose files.</p>}
+        {tab !== 'Streaming' && !visible.length && <p className="px-4 py-8 text-center text-sm text-muted-foreground">No tracks here yet. Open a music folder or choose files.</p>}
       </div>
       <footer className="flex items-center justify-between border-t border-border bg-secondary px-4 py-3 text-xs text-muted-foreground"><span>{busy ? <LoaderCircle className="size-4 animate-spin" /> : `${visible.length} tracks`}</span><button className="flex items-center gap-2 text-primary" onClick={scan}><FolderOpen className="size-4" />Browse device</button></footer>
       <input ref={files} type="file" accept="audio/*,video/*,.mp3,.aac,.m4a,.wav,.flac,.ogg,.mp4,.webm,.mov" multiple className="hidden" onChange={e => { void deviceLibrary.addFiles(Array.from(e.target.files ?? [])); e.target.value = ''; }} />
