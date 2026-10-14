@@ -8,6 +8,7 @@
 #include <jni.h>
 #include <atomic>
 #include <cmath>
+#include <algorithm>
 #include <memory>
 #include <mutex>
 #include <vector>
