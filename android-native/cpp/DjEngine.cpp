@@ -108,28 +108,38 @@ class Engine : public oboe::AudioStreamDataCallback, public oboe::AudioStreamErr
       const float* data = buf->data();
       long n = (long)(buf->size() / 2);
       double target = d.playing.load() ? d.targetRate.load() : 0.0;
-      if (d.follow.load()) {
-        // Chase the finger: hand speed plus a correction for position error,
-        // so audio, waveform and jog never drift apart.
-        double err = d.followPos.load() - d.pos / sampleRate;
-        target = d.followVel.load() + std::max(-6.0, std::min(6.0, err * 18.0));
-        target = std::max(-16.0, std::min(16.0, target));
-      }
+      const bool follow = d.follow.load();
+      // Alpha-beta tracker (same as the web engine): critically damped at
+      // 45 Hz so the platter locks to the finger, reverses without overshoot
+      // and never jumps, which is what causes clicks.
+      const double abW = 2.0 * M_PI * 45.0 / sampleRate;
+      const double abA = 2.0 * abW, abB = abW * abW;
+      const double fPos = d.followPos.load() * sampleRate;
+      const double fVel = std::max(-24.0, std::min(24.0, d.followVel.load()));
       float gTarget = d.volume.load() * d.xfade.load();
       for (int i = 0; i < frames; ++i) {
-        d.rate += (target - d.rate) * kRate;
-        if (std::fabs(target - d.rate) < 0.0001) d.rate = target;
+        double prev = d.pos;
+        if (follow) {
+          double goal = fPos + fVel * i;
+          double err = goal - (d.pos + d.rate);
+          double step = std::max(-24.0, std::min(24.0, d.rate + abA * err));
+          d.rate = std::max(-24.0, std::min(24.0, d.rate + abB * err));
+          d.pos += step;
+        } else {
+          d.rate += (target - d.rate) * kRate;
+          if (std::fabs(target - d.rate) < 0.0001) d.rate = target;
+          d.pos += d.rate;
+        }
         d.gain += (gTarget - d.gain) * kGain;
-        if (std::fabs(d.rate) < 1e-5) continue;
-        long idx = (long)std::floor(d.pos);
-        float f = (float)(d.pos - idx);
-        // fade near-zero speeds like a real platter (no DC buzz)
-        float slow = std::min(1.0, std::fabs(d.rate) * 8.0);
-        out[i * 2] += hermite(data, n, idx, f, 0) * d.gain * slow;
-        out[i * 2 + 1] += hermite(data, n, idx, f, 1) * d.gain * slow;
-        d.pos += d.rate;
         if (d.pos < 0) { d.pos = 0; d.rate = 0; }
         if (d.pos > n - 2) { d.pos = n - 2; d.rate = 0; d.playing = false; }
+        if (std::fabs(d.rate) < 1e-5) continue;
+        long idx = (long)std::floor(prev);
+        float f = (float)(prev - idx);
+        // fade near-zero speeds like a real platter (no DC buzz)
+        float slow = (float)std::min(1.0, std::fabs(d.rate) * 8.0);
+        out[i * 2] += hermite(data, n, idx, f, 0) * d.gain * slow;
+        out[i * 2 + 1] += hermite(data, n, idx, f, 1) * d.gain * slow;
       }
       d.reportedPos.store(d.pos / sampleRate);
     }
