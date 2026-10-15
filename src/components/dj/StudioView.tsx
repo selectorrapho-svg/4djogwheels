@@ -4,7 +4,7 @@ import { computeBandedPeaks } from "@/lib/dj/engine";
 import { buildRgbStrip } from "@/lib/dj/rgbWave";
 import { Button } from "@/components/ui/button";
 import type { Mixer } from "@/lib/dj/engine";
-import { splitClip, clipDuration, studioGridStep, studioPitch, studioPlacement, syncClip, studioDuration, studioSchedule, studioWav, type StudioClip } from "@/lib/dj/studio";
+import { splitClip, trimClip, clipSource, clipDuration, studioGridStep, studioPitch, studioPlacement, syncClip, studioDuration, studioSchedule, studioWav, type StudioClip } from "@/lib/dj/studio";
 import { connectStudioFx, prepareStudioClip } from "@/lib/dj/studioAudio";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
 
@@ -65,6 +65,8 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
   const [hasClip, setHasClip] = useState(false);
   const [laneCount, setLaneCount] = useState(1);
   const [editOpen, setEditOpen] = useState(false);
+  const [cutTool, setCutTool] = useState(false);
+  const [trim, setTrim] = useState<{ id: number; left: number; width: number } | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const generation = useRef(0);
@@ -171,6 +173,14 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
   const dragClip = (e: React.PointerEvent, clip: StudioClip) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
     setSel(clip.id);
+    if (cutTool) {
+      // Scissors tool: tap anywhere on a clip to split exactly there (snapped to grid when Snap is on).
+      const box = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+      const beat = studioPlacement((e.clientX - box.left) / PX_PER_BEAT, snap, gridStep / 4);
+      const parts = splitClip(clip, beat * beatSec, bpm, nextId.current++);
+      if (parts) { setClips(cs => cs.flatMap(x => x.id === clip.id ? parts : [x])); setSel(parts[1].id); }
+      return;
+    }
     const el = e.currentTarget as HTMLElement; el.setPointerCapture(e.pointerId);
     const x0 = e.clientX, y0 = e.clientY, b0 = clip.startBeat, lane0 = clip.lane ?? 0;
     // Touch long-press opens the same edit menu as right-click (ACID/Serato style).
@@ -198,6 +208,44 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
       update(c.id, { stretch: Math.max(0.125, Math.min(8, beats * beatSec / c.buffer.duration)) });
     };
     const up = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); };
+    el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  };
+  /** Drag a clip edge to trim it shorter or pull hidden audio back out (non-destructive). */
+  const trimEdge = (e: React.PointerEvent, c: StudioClip, side: "l" | "r") => {
+    e.stopPropagation(); e.preventDefault(); setSel(c.id);
+    const el = e.currentTarget as HTMLElement; el.setPointerCapture(e.pointerId);
+    const x0 = e.clientX, st = c.stretch ?? 1;
+    const { source, s, e: end } = clipSource(c);
+    const lenBeats = clipDuration(c) / beatSec;
+    let next = c;
+    const move = (ev: PointerEvent) => {
+      let d = (ev.clientX - x0) / PX_PER_BEAT;
+      if (side === "l") {
+        let nb = c.startBeat + d; if (snap) nb = Math.round(nb / gridStep) * gridStep;
+        d = nb - c.startBeat;
+        let sec = d * beatSec / st;
+        // Moving the left edge right removes audio; left reveals it (bounded by the source).
+        const room = c.reverse ? source.duration - end : s;
+        sec = Math.max(-room, Math.min(c.buffer.duration - 0.005, sec));
+        if (c.startBeat + sec * st / beatSec < 0) sec = -c.startBeat * beatSec / st;
+        next = c.reverse ? trimClip(c, s, end - sec) : trimClip(c, s + sec, end);
+        next = { ...next, startBeat: c.startBeat + sec * st / beatSec };
+      } else {
+        let ne = c.startBeat + lenBeats + d; if (snap) ne = Math.round(ne / gridStep) * gridStep;
+        d = ne - c.startBeat - lenBeats;
+        let sec = d * beatSec / st;
+        const room = c.reverse ? s : source.duration - end;
+        sec = Math.max(-(c.buffer.duration - 0.005), Math.min(room, sec));
+        next = { ...c, srcStart: c.reverse ? s - sec : s, srcEnd: c.reverse ? end : end + sec };
+      }
+      const ns = next.srcStart ?? 0, nend = next.srcEnd ?? source.duration;
+      setTrim({ id: c.id, left: next.startBeat * PX_PER_BEAT, width: Math.max(4, (nend - ns) * st / beatSec * PX_PER_BEAT) });
+    };
+    const up = () => {
+      el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up);
+      setTrim(null);
+      if (next !== c) { const t = trimClip(next, next.srcStart ?? 0, next.srcEnd ?? source.duration); update(c.id, { ...t, id: c.id }); }
+    };
     el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
   };
   const seekRuler = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -276,6 +324,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
       </label>
       <div className="flex items-center gap-1">
         <Button variant="outline" size="icon" className="size-9" aria-label="Split at playhead (S)" disabled={!clips.length} onClick={split}><SplitSquareHorizontal className="size-4" /></Button>
+        <Button variant={cutTool ? "default" : "outline"} size="icon" className="size-9" aria-label="Scissors tool: tap a clip to split it there" aria-pressed={cutTool} disabled={!clips.length} onClick={() => setCutTool(v => !v)}><Scissors className="size-4 -rotate-90" /></Button>
         <Button variant="outline" size="icon" className="size-9" aria-label="Cut clip" disabled={!selected} onClick={cutSel}><Scissors className="size-4" /></Button>
         <Button variant="outline" size="icon" className="size-9" aria-label="Copy clip" disabled={!selected} onClick={copySel}><Copy className="size-4" /></Button>
         <Button variant="outline" size="icon" className="size-9" aria-label="Paste at playhead" disabled={!hasClip} onClick={paste}><ClipboardPaste className="size-4" /></Button>
@@ -320,17 +369,20 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
         <div className="studio-grid pointer-events-none absolute inset-x-0 bottom-0 top-7" style={{ backgroundSize: `${PX_PER_BEAT * gridStep}px 100%, ${PX_PER_BEAT * 4}px 100%` }} />
         {Array.from({ length: lanes + 1 }, (_, i) => <ContextMenu key={i}><ContextMenuTrigger asChild><div data-studio-lane={i} className="relative h-16 border-b border-border" onPointerDown={e => { if (e.target === e.currentTarget) seekRuler(e); }} onContextMenu={e => { const box = e.currentTarget.getBoundingClientRect(); setHead(studioPlacement((e.clientX - box.left) / PX_PER_BEAT, snap, gridStep) * beatSec); }}>
         {clips.filter(c => (c.lane ?? 0) === i).map(c => {
-          const w = Math.max(12, (clipDuration(c) / beatSec) * PX_PER_BEAT);
+          const tp = trim?.id === c.id ? trim : null;
+          const w = Math.max(6, tp ? tp.width : (clipDuration(c) / beatSec) * PX_PER_BEAT);
           const color = LANE_COLORS[i % LANE_COLORS.length];
           return <ContextMenu key={c.id}><ContextMenuTrigger asChild>
             <div role="button" tabIndex={0} aria-label={`Move ${c.name}, starts at beat ${c.startBeat + 1}`} onPointerDown={e => dragClip(e, c)}
               onContextMenu={e => { e.stopPropagation(); setSel(c.id); }}
               onKeyDown={e => { if (e.key === "ArrowRight") update(c.id, { startBeat: c.startBeat + 1 }); if (e.key === "ArrowLeft") update(c.id, { startBeat: Math.max(0, c.startBeat - 1) }); }}
-              className={`studio-clip absolute top-1.5 h-[52px] cursor-grab touch-none overflow-hidden rounded-md border ${sel === c.id ? "border-foreground ring-2 ring-foreground" : "border-foreground/20"} ${c.mute ? "opacity-40" : ""}`}
-              style={{ left: c.startBeat * PX_PER_BEAT, width: w, background: `color-mix(in oklab, ${color} 35%, var(--background))` }}>
+              className={`studio-clip absolute top-1.5 h-[52px] cursor-grab touch-none overflow-hidden rounded-md border ${sel === c.id ? "border-foreground ring-2 ring-foreground" : "border-foreground/20"} ${c.mute ? "opacity-40" : ""} ${cutTool ? "cursor-crosshair" : ""}`}
+              style={{ left: tp ? tp.left : c.startBeat * PX_PER_BEAT, width: w, background: `color-mix(in oklab, ${color} 35%, var(--background))` }}>
               <span className="absolute left-1 top-0.5 z-10 max-w-full truncate text-[10px] font-semibold text-foreground">{c.name}{c.pitch ? ` · ${c.pitch > 0 ? "+" : ""}${c.pitch}` : ""}{c.reverse ? " · REV" : ""}</span>
               <ClipWave buffer={c.buffer} width={Math.min(w, 4000)} />
-              <div role="slider" tabIndex={0} aria-label={`Stretch ${c.name}`} aria-valuemin={0.125} aria-valuemax={8} aria-valuenow={c.stretch ?? 1} onPointerDown={e => stretchClip(e, c)} onKeyDown={e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") update(c.id, { stretch: Math.max(0.125, Math.min(8, (c.stretch ?? 1) + (e.key === "ArrowRight" ? 0.05 : -0.05))) }); }} className="absolute -right-1.5 top-1/2 z-20 grid size-6 -translate-y-1/2 place-items-center rounded-full border-2 border-foreground/60 bg-background shadow-md"><span className="size-1.5 rounded-full bg-foreground/70" /></div>
+              <div aria-label={`Trim start of ${c.name}`} onPointerDown={e => trimEdge(e, c, "l")} className="absolute inset-y-0 left-0 z-20 w-2.5 cursor-ew-resize touch-none border-l-2 border-foreground/50 hover:bg-foreground/20" />
+              <div aria-label={`Trim end of ${c.name}`} onPointerDown={e => trimEdge(e, c, "r")} className="absolute inset-y-0 right-0 z-20 w-2.5 cursor-ew-resize touch-none border-r-2 border-foreground/50 hover:bg-foreground/20" />
+              <div role="slider" tabIndex={0} aria-label={`Stretch ${c.name}`} aria-valuemin={0.125} aria-valuemax={8} aria-valuenow={c.stretch ?? 1} onPointerDown={e => stretchClip(e, c)} onKeyDown={e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") update(c.id, { stretch: Math.max(0.125, Math.min(8, (c.stretch ?? 1) + (e.key === "ArrowRight" ? 0.05 : -0.05))) }); }} className="absolute right-0 top-0 z-30 grid size-4 place-items-center rounded-full border-2 border-foreground/60 bg-background shadow-md"><span className="size-1 rounded-full bg-foreground/70" /></div>
             </div>
             </ContextMenuTrigger><ContextMenuContent className="w-52">
               <ContextMenuItem onSelect={() => { setSel(c.id); const parts = splitClip(c, head, bpm, nextId.current++); if (parts) setClips(cs => cs.flatMap(x => x.id === c.id ? parts : [x])); }}><Scissors className="mr-2 size-4" />Split at playhead</ContextMenuItem>
