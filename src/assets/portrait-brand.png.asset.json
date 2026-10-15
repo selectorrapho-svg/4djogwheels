@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "6de8b871-0214-493a-80af-c37663eb9c9f",
-  "project_id": "cacdd60c-f0d4-4031-9749-38f0a685dd1b",
-  "url": "/__l5e/assets-v1/6de8b871-0214-493a-80af-c37663eb9c9f/portrait-brand.png",
-  "r2_key": "a/v1/cacdd60c-f0d4-4031-9749-38f0a685dd1b/6de8b871-0214-493a-80af-c37663eb9c9f/portrait-brand.png",
-  "original_filename": "portrait-brand.png",
-  "size": 29882,
   "content_type": "image/png",
-  "created_at": "2026-10-14T07:34:18Z"
+  "created_at": "2026-10-14T07:34:18Z",
+  "original_filename": "portrait-brand.png",
+  "project_id": "42e64f50-6404-496b-bb91-9621ee16a313",
+  "r2_key": "a/v1/42e64f50-6404-496b-bb91-9621ee16a313/6de8b871-0214-493a-80af-c37663eb9c9f/portrait-brand.png",
+  "size": 29882,
+  "url": "/__l5e/assets-v1/6de8b871-0214-493a-80af-c37663eb9c9f/portrait-brand.png",
+  "version": 1
 }
