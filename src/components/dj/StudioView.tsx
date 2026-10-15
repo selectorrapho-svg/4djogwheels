@@ -100,7 +100,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
     live.current = { nodes: [], effects: [], startedAt: t0, from, out };
     for (const [i, s] of schedule.entries()) {
       const src = ctx.createBufferSource(); src.buffer = prepared[i];
-      live.current.effects.push(...connectStudioFx(ctx, src, out, s.clip));
+      live.current.effects.push(...connectStudioFx(ctx, src, out, s.clip, t0 + s.delay, clipDuration(s.clip) - s.offset));
       src.start(t0 + s.delay, s.offset);
       live.current.nodes.push(src);
     }
@@ -169,16 +169,23 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
   });
 
   const dragClip = (e: React.PointerEvent, clip: StudioClip) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 && e.pointerType === "mouse") return;
     setSel(clip.id);
     const el = e.currentTarget as HTMLElement; el.setPointerCapture(e.pointerId);
     const x0 = e.clientX, y0 = e.clientY, b0 = clip.startBeat, lane0 = clip.lane ?? 0;
+    // Touch long-press opens the same edit menu as right-click (ACID/Serato style).
+    let longPress = false;
+    const lpTimer = e.pointerType === "mouse" ? 0 : window.setTimeout(() => {
+      longPress = true;
+      el.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: x0, clientY: y0 }));
+    }, 480);
     const move = (ev: PointerEvent) => {
       if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 7) return;
+      if (lpTimer) { clearTimeout(lpTimer); if (longPress) return; }
       const b = studioPlacement(b0 + (ev.clientX - x0) / PX_PER_BEAT, snap, gridStep);
       update(clip.id, { startBeat: b, lane: Math.max(0, Math.min(lanes, lane0 + Math.round((ev.clientY - y0) / 64))) });
     };
-    const up = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); };
+    const up = () => { if (lpTimer) clearTimeout(lpTimer); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); };
     el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
   };
   const stretchClip = (e: React.PointerEvent, c: StudioClip) => {
@@ -238,7 +245,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
     try {
     for (const s of studioSchedule(clips, bpm, 0)) {
       const src = off.createBufferSource(); src.buffer = await prepareStudioClip(s.clip);
-      connectStudioFx(off, src, off.destination, s.clip); src.start(s.delay, s.offset);
+      connectStudioFx(off, src, off.destination, s.clip, s.delay, clipDuration(s.clip) - s.offset); src.start(s.delay, s.offset);
     }
     const url = URL.createObjectURL(studioWav(await off.startRendering()));
     const a = document.createElement("a"); a.href = url; a.download = "studio-mix.wav"; a.click();
@@ -254,39 +261,41 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
       <Button variant="ghost" onClick={() => { stop(); onClose(); }}><ArrowLeft />Mixer</Button>
       <h1 className="text-base font-semibold">Studio</h1>
       <div className="ml-auto flex items-center gap-1">
-        <Button variant="ghost" size="icon" aria-label="Export mix as WAV" disabled={!clips.length || !!busy} onClick={() => void exportMix()}><Download /></Button>
+        <Button variant="ghost" size="icon" className="size-9" aria-label="Export mix as WAV" disabled={!clips.length || !!busy} onClick={() => void exportMix()}><Download className="size-4" /></Button>
         <Button size="sm" onClick={() => fileRef.current?.click()}><Plus />Add audio</Button>
         <input ref={fileRef} type="file" accept="audio/*" multiple hidden onChange={e => { void importFiles(e.target.files); e.target.value = ""; }} />
       </div>
     </header>
-    <div className="studio-transport flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-secondary px-3 py-2">
-      <Button variant="outline" size="icon" className="size-11 rounded-full" aria-label={playing ? "Stop" : "Play"} disabled={!clips.length} onClick={() => playing ? stop() : start(head)}>{playing ? <Square fill="currentColor" /> : <Play fill="currentColor" />}</Button>
-      <Button variant={loop ? "default" : "outline"} size="icon" aria-label="Loop arrangement" aria-pressed={loop} onClick={() => setLoop(l => !l)}><Repeat /></Button>
-      <Button variant={snap ? "default" : "outline"} size="icon" aria-label="Snap to beat" aria-pressed={snap} onClick={() => setSnap(v => !v)}><Magnet /></Button>
-      <div className="studio-lcd rounded-md border border-border bg-background px-3 py-1 font-mono text-lg tabular-nums">{fmt(head)}</div>
-      <label className="flex items-center gap-2 text-xs text-muted-foreground">BPM
-        <input type="number" min={60} max={200} step={0.1} value={bpm} aria-label="Project tempo" onChange={e => { const v = Number(e.target.value); if (v >= 30 && v <= 300) setBpm(v); }} className="w-20 rounded-md border border-border bg-background px-2 py-1 font-mono text-base text-foreground" />
+    <div className="studio-transport flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border bg-secondary px-2 py-1.5">
+      <Button variant="outline" size="icon" className="size-9 rounded-full" aria-label={playing ? "Stop" : "Play"} disabled={!clips.length} onClick={() => playing ? stop() : start(head)}>{playing ? <Square className="size-4" fill="currentColor" /> : <Play className="size-4" fill="currentColor" />}</Button>
+      <Button variant={loop ? "default" : "outline"} size="icon" className="size-9" aria-label="Loop arrangement" aria-pressed={loop} onClick={() => setLoop(l => !l)}><Repeat className="size-4" /></Button>
+      <Button variant={snap ? "default" : "outline"} size="icon" className="size-9" aria-label="Snap to beat" aria-pressed={snap} onClick={() => setSnap(v => !v)}><Magnet className="size-4" /></Button>
+      <div className="studio-lcd rounded-md border border-border bg-background px-2 py-0.5 font-mono text-sm tabular-nums">{fmt(head)}</div>
+      <label className="flex items-center gap-1 text-[11px] text-muted-foreground">BPM
+        <input type="number" min={60} max={200} step={0.1} value={bpm} aria-label="Project tempo" onChange={e => { const v = Number(e.target.value); if (v >= 30 && v <= 300) setBpm(v); }} className="w-16 rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-sm text-foreground" />
       </label>
       <div className="flex items-center gap-1">
-        <Button variant="outline" size="icon" aria-label="Split at playhead (S)" disabled={!clips.length} onClick={split}><SplitSquareHorizontal /></Button>
-        <Button variant="outline" size="icon" aria-label="Cut clip" disabled={!selected} onClick={cutSel}><Scissors /></Button>
-        <Button variant="outline" size="icon" aria-label="Copy clip" disabled={!selected} onClick={copySel}><Copy /></Button>
-        <Button variant="outline" size="icon" aria-label="Paste at playhead" disabled={!hasClip} onClick={paste}><ClipboardPaste /></Button>
-        <Button variant="outline" size="icon" aria-label="Duplicate clip" disabled={!selected} onClick={duplicate}><CopyPlus /></Button>
+        <Button variant="outline" size="icon" className="size-9" aria-label="Split at playhead (S)" disabled={!clips.length} onClick={split}><SplitSquareHorizontal className="size-4" /></Button>
+        <Button variant="outline" size="icon" className="size-9" aria-label="Cut clip" disabled={!selected} onClick={cutSel}><Scissors className="size-4" /></Button>
+        <Button variant="outline" size="icon" className="size-9" aria-label="Copy clip" disabled={!selected} onClick={copySel}><Copy className="size-4" /></Button>
+        <Button variant="outline" size="icon" className="size-9" aria-label="Paste at playhead" disabled={!hasClip} onClick={paste}><ClipboardPaste className="size-4" /></Button>
+        <Button variant="outline" size="icon" className="size-9" aria-label="Duplicate clip" disabled={!selected} onClick={duplicate}><CopyPlus className="size-4" /></Button>
       </div>
       <div className="flex items-center gap-1">
-        <Button variant="outline" size="icon" aria-label="Zoom out" onClick={() => setPx(p => Math.max(6, p / 1.5))}><ZoomOut /></Button>
-        <Button variant="outline" size="icon" aria-label="Zoom in" onClick={() => setPx(p => Math.min(480, p * 1.5))}><ZoomIn /></Button>
+        <Button variant="outline" size="icon" className="size-9" aria-label="Zoom out" onClick={() => setPx(p => Math.max(6, p / 1.5))}><ZoomOut className="size-4" /></Button>
+        <Button variant="outline" size="icon" className="size-9" aria-label="Zoom in" onClick={() => setPx(p => Math.min(480, p * 1.5))}><ZoomIn className="size-4" /></Button>
       </div>
-      <Button variant="outline" size="icon" aria-label="Add lane" onClick={() => setLaneCount(lanes + 1)}><Plus /></Button>
-      <Button variant="outline" size="icon" aria-label="Track FX and pitch" disabled={!selected} onClick={() => setEditOpen(v => !v)}><SlidersHorizontal /></Button>
-      <Button variant="outline" size="icon" aria-label="Sync selected clip to project beats" disabled={!selected} onClick={() => { if (selected) update(selected.id, syncClip(selected, bpm)); }}><Link2 /></Button>
+      <Button variant="outline" size="icon" className="size-9" aria-label="Add lane" onClick={() => setLaneCount(lanes + 1)}><Plus className="size-4" /></Button>
+      <Button variant="outline" size="icon" className="size-9" aria-label="Track FX and pitch" disabled={!selected} onClick={() => setEditOpen(v => !v)}><SlidersHorizontal className="size-4" /></Button>
+      <Button variant="outline" size="icon" className="size-9" aria-label="Sync selected clip to project beats" disabled={!selected} onClick={() => { if (selected) update(selected.id, syncClip(selected, bpm)); }}><Link2 className="size-4" /></Button>
       {busy && <span role="status" className="text-xs text-muted-foreground">{busy}</span>}
     </div>
     {selected && editOpen && <div className="flex flex-wrap items-center gap-3 border-b border-border bg-secondary p-2">
       <span className="max-w-40 truncate text-xs">{selected.name}</span>
       <label className="flex items-center gap-2 text-xs">Pitch <input aria-label="Clip pitch semitones" type="range" min={-24} max={24} step={1} value={selected.pitch ?? 0} onChange={e => update(selected.id, { pitch: studioPitch(Number(e.target.value)) })} /><output className="w-8 tabular-nums">{selected.pitch ?? 0}</output></label>
       <label className="flex items-center gap-2 text-xs">FX <select aria-label="Track effect" className="rounded border border-border bg-background p-1" value={selected.fx ?? "none"} onChange={e => update(selected.id, { fx: e.target.value as StudioClip["fx"] })}><option value="none">None</option><option value="lowpass">Low pass</option><option value="highpass">High pass</option><option value="echo">Echo</option><option value="drive">Drive</option></select></label>
+      <label className="flex items-center gap-2 text-xs">Fade in <input aria-label="Fade in seconds" type="range" min={0} max={8} step={0.1} value={selected.fadeIn ?? 0} onDoubleClick={() => update(selected.id, { fadeIn: 0 })} onChange={e => update(selected.id, { fadeIn: Number(e.target.value) })} className="w-16" /><output className="w-9 tabular-nums">{(selected.fadeIn ?? 0).toFixed(1)}s</output></label>
+      <label className="flex items-center gap-2 text-xs">Fade out <input aria-label="Fade out seconds" type="range" min={0} max={8} step={0.1} value={selected.fadeOut ?? 0} onDoubleClick={() => update(selected.id, { fadeOut: 0 })} onChange={e => update(selected.id, { fadeOut: Number(e.target.value) })} className="w-16" /><output className="w-9 tabular-nums">{(selected.fadeOut ?? 0).toFixed(1)}s</output></label>
       <Button variant={selected.reverse ? "default" : "outline"} size="sm" onClick={() => update(selected.id, { reverse: !selected.reverse })}><RotateCcw />Reverse</Button>
       <Button variant="ghost" size="sm" onClick={() => update(selected.id, { stretch: 1, pitch: 0, reverse: false, fx: "none" })}>Reset</Button>
     </div>}
@@ -321,7 +330,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
               style={{ left: c.startBeat * PX_PER_BEAT, width: w, background: `color-mix(in oklab, ${color} 35%, var(--background))` }}>
               <span className="absolute left-1 top-0.5 z-10 max-w-full truncate text-[10px] font-semibold text-foreground">{c.name}{c.pitch ? ` · ${c.pitch > 0 ? "+" : ""}${c.pitch}` : ""}{c.reverse ? " · REV" : ""}</span>
               <ClipWave buffer={c.buffer} width={Math.min(w, 4000)} />
-              <div role="slider" tabIndex={0} aria-label={`Stretch ${c.name}`} aria-valuemin={0.125} aria-valuemax={8} aria-valuenow={c.stretch ?? 1} onPointerDown={e => stretchClip(e, c)} onKeyDown={e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") update(c.id, { stretch: Math.max(0.125, Math.min(8, (c.stretch ?? 1) + (e.key === "ArrowRight" ? 0.05 : -0.05))) }); }} className="absolute right-0 top-0 h-full w-3 cursor-ew-resize border-l-2 border-foreground/50 bg-background/30" />
+              <div role="slider" tabIndex={0} aria-label={`Stretch ${c.name}`} aria-valuemin={0.125} aria-valuemax={8} aria-valuenow={c.stretch ?? 1} onPointerDown={e => stretchClip(e, c)} onKeyDown={e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") update(c.id, { stretch: Math.max(0.125, Math.min(8, (c.stretch ?? 1) + (e.key === "ArrowRight" ? 0.05 : -0.05))) }); }} className="absolute -right-1.5 top-1/2 z-20 grid size-6 -translate-y-1/2 place-items-center rounded-full border-2 border-foreground/60 bg-background shadow-md"><span className="size-1.5 rounded-full bg-foreground/70" /></div>
             </div>
             </ContextMenuTrigger><ContextMenuContent className="w-52">
               <ContextMenuItem onSelect={() => { setSel(c.id); const parts = splitClip(c, head, bpm, nextId.current++); if (parts) setClips(cs => cs.flatMap(x => x.id === c.id ? parts : [x])); }}><Scissors className="mr-2 size-4" />Split at playhead</ContextMenuItem>

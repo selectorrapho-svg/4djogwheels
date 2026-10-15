@@ -1,4 +1,4 @@
-import type { StudioClip } from "./studio";
+import { clipDuration, studioFades, type StudioClip } from "./studio";
 
 const cache = new WeakMap<AudioBuffer, Map<string, Promise<AudioBuffer>>>();
 export function prepareStudioClip(clip: StudioClip): Promise<AudioBuffer> {
@@ -26,10 +26,21 @@ export function prepareStudioClip(clip: StudioClip): Promise<AudioBuffer> {
 }
 
 /** Identical routing for live playback and offline WAV export. */
-export function connectStudioFx(ctx: BaseAudioContext, input: AudioNode, output: AudioNode, clip: StudioClip): AudioNode[] {
+export function connectStudioFx(ctx: BaseAudioContext, input: AudioNode, output: AudioNode, clip: StudioClip, when = 0, audibleSeconds = clipDuration(clip)): AudioNode[] {
   const gain = ctx.createGain(); gain.gain.value = clip.gain;
   input.connect(gain);
   const nodes: AudioNode[] = [gain];
+  // Independent volume fades: ramp the clip's own gain node so the envelope
+  // stays identical for live playback, restart-on-edit and offline export.
+  const { fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd } = studioFades(clip, audibleSeconds, when);
+  if (fadeInEnd > fadeInStart) {
+    gain.gain.setValueAtTime(0, fadeInStart);
+    gain.gain.linearRampToValueAtTime(clip.gain, fadeInEnd);
+  }
+  if (fadeOutEnd > fadeOutStart) {
+    gain.gain.setValueAtTime(clip.gain, fadeOutStart);
+    gain.gain.linearRampToValueAtTime(0.0001, fadeOutEnd);
+  }
   if (clip.fx === "lowpass" || clip.fx === "highpass") {
     const filter = ctx.createBiquadFilter(); filter.type = clip.fx; filter.frequency.value = clip.fx === "lowpass" ? 1800 : 600;
     gain.connect(filter).connect(output); nodes.push(filter);

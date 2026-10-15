@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { studioSchedule, studioDuration, clipDuration, studioPlacement, studioPitch, studioGridStep, syncClip, type StudioClip } from './studio';
+import { studioSchedule, studioDuration, clipDuration, studioPlacement, studioPitch, studioGridStep, syncClip, studioFades, type StudioClip } from './studio';
 const clip = (id: number, startBeat = 0): StudioClip => ({ id, startBeat, name: 'audio', buffer: { duration: 4 } as AudioBuffer, gain: 1, mute: false, solo: false });
 describe('Studio audio timeline', () => {
   it('schedules clips and seeks against the same beat clock', () => {
@@ -42,5 +42,15 @@ describe('Studio editing rules', () => {
   });
   it('reveals eighth-beat grid divisions at close zoom', () => {
     expect(studioGridStep(28)).toBe(1); expect(studioGridStep(160)).toBe(0.125);
+  });
+  it('clamps independent fades so they never overlap', () => {
+    const faded = { ...clip(1), fadeIn: 3, fadeOut: 3 };
+    const env = studioFades(faded, 4, 10);
+    expect(env.fadeInEnd).toBe(12);
+    expect(env.fadeOutStart).toBe(12);
+    expect(env.fadeOutEnd).toBe(14);
+    const short = studioFades({ ...clip(1), fadeIn: 9, fadeOut: 0 }, 1, 0);
+    expect(short.fadeInEnd).toBe(1);
+    expect(short.fadeOutEnd).toBe(1);
   });
 });
