@@ -190,14 +190,27 @@ class ScratchProcessor extends AudioWorkletProcessor {
       if (this.mode === 'path' && this.path.length) {
         const rt = (currentFrame + s) / sampleRate - this.delay;
         const P = this.path;
-        while (P.length > 2 && P[1].t <= rt) P.shift();
-        const a = P[0], b = P[1];
+        // Keep one point of history before the active segment so the hand
+        // path can be replayed as a time-based cubic (Catmull-Rom) curve.
+        while (P.length > 3 && P[2].t <= rt) P.shift();
+        const hasPrev = P.length > 2 && P[1].t <= rt;
+        const ia = hasPrev ? 1 : 0;
+        const a = P[ia], b = P[ia + 1];
         let goal;
         if (!b || rt <= a.t) goal = a.p;
         else if (rt >= b.t) goal = b.p;
-        else goal = a.p + (b.p - a.p) * (rt - a.t) / (b.t - a.t);
-        // Two cascaded 0.7 ms poles round the corners between touch samples
-        // (C1-continuous speed) without audible lag: no zipper, no ticks.
+        else {
+          // Cubic Hermite with finite-difference tangents: the platter speed
+          // changes smoothly between touch samples instead of stepping every
+          // touch frame (the stepped speed was the "cut" / zipper sound).
+          const h = b.t - a.t, u = (rt - a.t) / h;
+          const p0 = hasPrev ? P[0] : a, p3 = P[ia + 2] || b;
+          const m1 = (p0 === a ? (b.p - a.p) / h : (b.p - p0.p) / Math.max(1e-4, b.t - p0.t)) * h;
+          const m2 = (p3 === b ? (b.p - a.p) / h : (p3.p - a.p) / Math.max(1e-4, p3.t - a.t)) * h;
+          const u2 = u * u, u3 = u2 * u;
+          goal = (2*u3 - 3*u2 + 1) * a.p + (u3 - 2*u2 + u) * m1 + (-2*u3 + 3*u2) * b.p + (u3 - u2) * m2;
+        }
+        // Two cascaded poles round any remaining corners without audible lag.
         this.s1 += (goal - this.s1) * pathK;
         this.s2 += (this.s1 - this.s2) * pathK;
         const np = this.s2;
