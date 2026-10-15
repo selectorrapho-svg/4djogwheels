@@ -15,6 +15,24 @@ export interface StudioClip {
   /** Independent volume fades in seconds (applied to the audible slice). */
   fadeIn?: number;
   fadeOut?: number;
+  /** Untrimmed source audio; `buffer` is the [srcStart, srcEnd) slice of it. */
+  source?: AudioBuffer;
+  srcStart?: number;
+  srcEnd?: number;
+}
+
+export function clipSource(clip: StudioClip) {
+  const source = clip.source ?? clip.buffer;
+  return { source, s: clip.srcStart ?? 0, e: clip.srcEnd ?? source.duration };
+}
+
+/** Non-destructive trim: re-slice the source so edges can be dragged back out. */
+export function trimClip(clip: StudioClip, srcStart: number, srcEnd: number): StudioClip {
+  const { source } = clipSource(clip);
+  const min = 0.005;
+  const s = Math.max(0, Math.min(source.duration - min, srcStart));
+  const e = Math.max(s + min, Math.min(source.duration, srcEnd));
+  return { ...clip, source, srcStart: s, srcEnd: e, buffer: sliceBuffer(source, s, e) };
 }
 
 export function clipDuration(clip: StudioClip) { return clip.buffer.duration * (clip.stretch ?? 1); }
@@ -93,11 +111,10 @@ export function studioFades(clip: StudioClip, audibleSeconds: number, when: numb
 /** Split a clip at an arrangement time (seconds); returns null if the time is outside the clip. */
 export function splitClip(clip: StudioClip, atSec: number, bpm: number, newId: number): [StudioClip, StudioClip] | null {
   const beat = 60 / bpm;
-  const outputLocal = atSec - clip.startBeat * beat;
-  const local = outputLocal / (clip.stretch ?? 1);
-  if (local <= 0.01 || local >= clip.buffer.duration - 0.01) return null;
-  return [
-    { ...clip, buffer: clip.reverse ? sliceBuffer(clip.buffer, clip.buffer.duration - local, clip.buffer.duration) : sliceBuffer(clip.buffer, 0, local) },
-    { ...clip, id: newId, name: `${clip.name} (2)`, buffer: clip.reverse ? sliceBuffer(clip.buffer, 0, clip.buffer.duration - local) : sliceBuffer(clip.buffer, local, clip.buffer.duration), startBeat: atSec / beat },
-  ];
+  const local = (atSec - clip.startBeat * beat) / (clip.stretch ?? 1);
+  if (local <= 0.002 || local >= clip.buffer.duration - 0.002) return null;
+  const { s, e } = clipSource(clip);
+  const first = clip.reverse ? trimClip(clip, e - local, e) : trimClip(clip, s, s + local);
+  const second = clip.reverse ? trimClip(clip, s, e - local) : trimClip(clip, s + local, e);
+  return [first, { ...second, id: newId, name: clip.name.endsWith(" (2)") ? clip.name : `${clip.name} (2)`, startBeat: atSec / beat }];
 }

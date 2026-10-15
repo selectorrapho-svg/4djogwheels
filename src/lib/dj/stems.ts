@@ -2,11 +2,13 @@
 // to WebAssembly + WebGPU. Runs in a background worker; the deck keeps its
 // frequency-band stems until the separated stems are ready. Pro feature only.
 import wasmAsset from "@/assets/wasm/demucs_wasm_bg.wasm.asset.json";
+import modelAsset from "@/assets/models/htdemucs.safetensors.asset.json";
 import { isPro } from "@/lib/dj/license";
 import type { StemKey } from "./engine";
 
 const MODEL_ID = "htdemucs";
-const MODEL_URL = "https://huggingface.co/set-soft/audio_separation/resolve/main/Demucs/htdemucs.safetensors";
+// Bundled with the app; Hugging Face is only a fallback.
+const FALLBACK_MODEL_URL = "https://huggingface.co/set-soft/audio_separation/resolve/main/Demucs/htdemucs.safetensors";
 const DB = "demucs-models";
 const STORE = "weights";
 
@@ -67,7 +69,8 @@ async function loadModel(): Promise<Uint8Array> {
     q.onerror = () => res(undefined);
   });
   if (cached) return new Uint8Array(cached);
-  const r = await fetch(MODEL_URL);
+  let r = await fetch(modelAsset.url).catch(() => null);
+  if (!r?.ok) r = await fetch(FALLBACK_MODEL_URL);
   if (!r.ok) throw new Error(`Model download failed (${r.status})`);
   const buf = await r.arrayBuffer();
   db.transaction(STORE, "readwrite").objectStore(STORE).put(buf, MODEL_ID);

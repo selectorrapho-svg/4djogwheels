@@ -54,3 +54,20 @@ describe('Studio editing rules', () => {
     expect(short.fadeOutEnd).toBe(1);
   });
 });
+import { trimClip } from './studio';
+class FakeBuf { numberOfChannels = 1; sampleRate = 1000; data: Float32Array; constructor(o: { length: number }) { this.data = new Float32Array(o.length); } get length() { return this.data.length; } get duration() { return this.length / 1000; } getChannelData() { return this.data; } copyToChannel(src: Float32Array) { this.data.set(src); } }
+describe('Studio trim and split', () => {
+  (globalThis as any).AudioBuffer = FakeBuf;
+  const src = new FakeBuf({ length: 4000 }) as unknown as AudioBuffer;
+  const base: StudioClip = { id: 1, startBeat: 0, name: 'a', buffer: src, gain: 1, mute: false, solo: false };
+  it('split keeps the full source so either half can be expanded back out', () => {
+    const [a, b] = splitClip(base, 1, 120, 2)!;
+    expect(a.buffer.duration).toBe(1);
+    expect(b.srcStart).toBe(1);
+    expect(trimClip(b, 0, 4).buffer.duration).toBe(4);
+  });
+  it('splits very small clips', () => {
+    const tiny = trimClip(base, 0, 0.05);
+    expect(splitClip(tiny, 0.025, 120, 3)?.[1].buffer.duration).toBeCloseTo(0.025);
+  });
+});
