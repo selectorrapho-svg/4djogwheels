@@ -175,7 +175,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
     // Slower motion gate (4 ms) so passing through zero speed on a reversal
     // fades instead of chopping the signal — the chop was the audible 'tik'.
     const motionK = 1 - Math.exp(-1 / (0.004 * sampleRate));
-    const pathK = 1 - Math.exp(-1 / (0.0012 * sampleRate)); // smooths speed steps between touch samples (zipper/cut noise)
+    const pathK = 1 - Math.exp(-1 / (0.0018 * sampleRate)); // smooths speed steps between touch samples (zipper/cut noise)
     const abW = 2 * Math.PI * 45 / sampleRate;
     const abA = 2 * abW, abB = abW * abW;
     const dcPole = Math.exp(-2 * Math.PI * 5 / sampleRate);
