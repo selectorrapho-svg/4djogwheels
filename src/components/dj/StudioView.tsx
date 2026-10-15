@@ -100,7 +100,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
     live.current = { nodes: [], effects: [], startedAt: t0, from, out };
     for (const [i, s] of schedule.entries()) {
       const src = ctx.createBufferSource(); src.buffer = prepared[i];
-      live.current.effects.push(...connectStudioFx(ctx, src, out, s.clip));
+      live.current.effects.push(...connectStudioFx(ctx, src, out, s.clip, t0 + s.delay, clipDuration(s.clip) - s.offset));
       src.start(t0 + s.delay, s.offset);
       live.current.nodes.push(src);
     }
@@ -238,7 +238,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
     try {
     for (const s of studioSchedule(clips, bpm, 0)) {
       const src = off.createBufferSource(); src.buffer = await prepareStudioClip(s.clip);
-      connectStudioFx(off, src, off.destination, s.clip); src.start(s.delay, s.offset);
+      connectStudioFx(off, src, off.destination, s.clip, s.delay, clipDuration(s.clip) - s.offset); src.start(s.delay, s.offset);
     }
     const url = URL.createObjectURL(studioWav(await off.startRendering()));
     const a = document.createElement("a"); a.href = url; a.download = "studio-mix.wav"; a.click();
@@ -287,6 +287,8 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
       <span className="max-w-40 truncate text-xs">{selected.name}</span>
       <label className="flex items-center gap-2 text-xs">Pitch <input aria-label="Clip pitch semitones" type="range" min={-24} max={24} step={1} value={selected.pitch ?? 0} onChange={e => update(selected.id, { pitch: studioPitch(Number(e.target.value)) })} /><output className="w-8 tabular-nums">{selected.pitch ?? 0}</output></label>
       <label className="flex items-center gap-2 text-xs">FX <select aria-label="Track effect" className="rounded border border-border bg-background p-1" value={selected.fx ?? "none"} onChange={e => update(selected.id, { fx: e.target.value as StudioClip["fx"] })}><option value="none">None</option><option value="lowpass">Low pass</option><option value="highpass">High pass</option><option value="echo">Echo</option><option value="drive">Drive</option></select></label>
+      <label className="flex items-center gap-2 text-xs">Fade in <input aria-label="Fade in seconds" type="range" min={0} max={8} step={0.1} value={selected.fadeIn ?? 0} onDoubleClick={() => update(selected.id, { fadeIn: 0 })} onChange={e => update(selected.id, { fadeIn: Number(e.target.value) })} className="w-16" /><output className="w-9 tabular-nums">{(selected.fadeIn ?? 0).toFixed(1)}s</output></label>
+      <label className="flex items-center gap-2 text-xs">Fade out <input aria-label="Fade out seconds" type="range" min={0} max={8} step={0.1} value={selected.fadeOut ?? 0} onDoubleClick={() => update(selected.id, { fadeOut: 0 })} onChange={e => update(selected.id, { fadeOut: Number(e.target.value) })} className="w-16" /><output className="w-9 tabular-nums">{(selected.fadeOut ?? 0).toFixed(1)}s</output></label>
       <Button variant={selected.reverse ? "default" : "outline"} size="sm" onClick={() => update(selected.id, { reverse: !selected.reverse })}><RotateCcw />Reverse</Button>
       <Button variant="ghost" size="sm" onClick={() => update(selected.id, { stretch: 1, pitch: 0, reverse: false, fx: "none" })}>Reset</Button>
     </div>}
