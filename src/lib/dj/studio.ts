@@ -12,6 +12,9 @@ export interface StudioClip {
   pitch?: number;
   reverse?: boolean;
   fx?: "none" | "lowpass" | "highpass" | "echo" | "drive";
+  /** Independent volume fades in seconds (applied to the audible slice). */
+  fadeIn?: number;
+  fadeOut?: number;
 }
 
 export function clipDuration(clip: StudioClip) { return clip.buffer.duration * (clip.stretch ?? 1); }
@@ -67,6 +70,18 @@ export function sliceBuffer(buffer: AudioBuffer, from: number, to: number): Audi
   const out = new AudioBuffer({ length: b - a, numberOfChannels: buffer.numberOfChannels, sampleRate: sr });
   for (let c = 0; c < buffer.numberOfChannels; c++) out.copyToChannel(buffer.getChannelData(c).subarray(a, b), c);
   return out;
+}
+
+/**
+ * Gain-envelope timing for a clip's audible slice: the fade-in ends after
+ * `fadeIn` seconds of audible audio, the fade-out starts `fadeOut` seconds
+ * before the slice ends. Both are clamped so they never overlap.
+ */
+export function studioFades(clip: StudioClip, audibleSeconds: number, when: number) {
+  const dur = Math.max(0, audibleSeconds);
+  const fadeIn = Math.max(0, Math.min(clip.fadeIn ?? 0, dur / 2));
+  const fadeOut = Math.max(0, Math.min(clip.fadeOut ?? 0, (dur - fadeIn) / 2));
+  return { fadeInStart: when, fadeInEnd: when + fadeIn, fadeOutStart: when + dur - fadeOut, fadeOutEnd: when + dur };
 }
 
 /** Split a clip at an arrangement time (seconds); returns null if the time is outside the clip. */
