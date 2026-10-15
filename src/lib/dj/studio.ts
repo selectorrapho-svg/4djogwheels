@@ -79,8 +79,14 @@ export function sliceBuffer(buffer: AudioBuffer, from: number, to: number): Audi
  */
 export function studioFades(clip: StudioClip, audibleSeconds: number, when: number) {
   const dur = Math.max(0, audibleSeconds);
-  const fadeIn = Math.max(0, Math.min(clip.fadeIn ?? 0, dur / 2));
-  const fadeOut = Math.max(0, Math.min(clip.fadeOut ?? 0, (dur - fadeIn) / 2));
+  let fadeIn = Math.max(0, clip.fadeIn ?? 0);
+  let fadeOut = Math.max(0, clip.fadeOut ?? 0);
+  // Overlapping fades share the slice proportionally instead of clamping one away.
+  if (fadeIn + fadeOut > dur) {
+    const total = fadeIn + fadeOut;
+    fadeIn = dur * fadeIn / total;
+    fadeOut = dur * fadeOut / total;
+  }
   return { fadeInStart: when, fadeInEnd: when + fadeIn, fadeOutStart: when + dur - fadeOut, fadeOutEnd: when + dur };
 }
 

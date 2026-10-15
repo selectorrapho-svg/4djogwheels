@@ -46,11 +46,11 @@ describe('Studio editing rules', () => {
   it('clamps independent fades so they never overlap', () => {
     const faded = { ...clip(1), fadeIn: 3, fadeOut: 3 };
     const env = studioFades(faded, 4, 10);
-    expect(env.fadeInEnd).toBe(13);
+    expect(env.fadeInEnd).toBe(12);
     expect(env.fadeOutStart).toBe(12);
     expect(env.fadeOutEnd).toBe(14);
     const short = studioFades({ ...clip(1), fadeIn: 9, fadeOut: 0 }, 1, 0);
-    expect(short.fadeInEnd).toBe(0.5);
+    expect(short.fadeInEnd).toBe(1);
     expect(short.fadeOutEnd).toBe(1);
   });
 });
