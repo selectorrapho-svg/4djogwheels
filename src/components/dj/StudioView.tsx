@@ -169,16 +169,23 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
   });
 
   const dragClip = (e: React.PointerEvent, clip: StudioClip) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 && e.pointerType === "mouse") return;
     setSel(clip.id);
     const el = e.currentTarget as HTMLElement; el.setPointerCapture(e.pointerId);
     const x0 = e.clientX, y0 = e.clientY, b0 = clip.startBeat, lane0 = clip.lane ?? 0;
+    // Touch long-press opens the same edit menu as right-click (ACID/Serato style).
+    let longPress = false;
+    const lpTimer = e.pointerType === "mouse" ? 0 : window.setTimeout(() => {
+      longPress = true;
+      el.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: x0, clientY: y0 }));
+    }, 480);
     const move = (ev: PointerEvent) => {
       if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 7) return;
+      if (lpTimer) { clearTimeout(lpTimer); if (longPress) return; }
       const b = studioPlacement(b0 + (ev.clientX - x0) / PX_PER_BEAT, snap, gridStep);
       update(clip.id, { startBeat: b, lane: Math.max(0, Math.min(lanes, lane0 + Math.round((ev.clientY - y0) / 64))) });
     };
-    const up = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); };
+    const up = () => { if (lpTimer) clearTimeout(lpTimer); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); };
     el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
   };
   const stretchClip = (e: React.PointerEvent, c: StudioClip) => {
