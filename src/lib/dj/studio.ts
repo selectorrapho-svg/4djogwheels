@@ -41,7 +41,8 @@ export function studioPlacement(beat: number, snap: boolean, subdivision = 1) {
   return Math.max(0, snap ? Math.round(beat / subdivision) * subdivision : beat);
 }
 export function studioGridStep(pixelsPerBeat: number) {
-  return pixelsPerBeat >= 160 ? 0.125 : pixelsPerBeat >= 80 ? 0.25 : pixelsPerBeat >= 40 ? 0.5 : 1;
+  // Reveal finer binary subdivisions while keeping each grid box about 20px wide.
+  return Math.min(1, 2 ** Math.ceil(Math.log2(20 / Math.max(1, pixelsPerBeat))));
 }
 export function syncClip(clip: StudioClip, bpm: number, beats = Math.max(1, Math.round(clipDuration(clip) * bpm / 60))): StudioClip {
   return { ...clip, stretch: Math.max(0.125, Math.min(8, beats * 60 / bpm / clip.buffer.duration)) };
@@ -112,7 +113,7 @@ export function studioFades(clip: StudioClip, audibleSeconds: number, when: numb
 export function splitClip(clip: StudioClip, atSec: number, bpm: number, newId: number): [StudioClip, StudioClip] | null {
   const beat = 60 / bpm;
   const local = (atSec - clip.startBeat * beat) / (clip.stretch ?? 1);
-  if (local <= 0.002 || local >= clip.buffer.duration - 0.002) return null;
+  if (local < 0.005 || local > clip.buffer.duration - 0.005) return null;
   const { s, e } = clipSource(clip);
   const first = clip.reverse ? trimClip(clip, e - local, e) : trimClip(clip, s, s + local);
   const second = clip.reverse ? trimClip(clip, s, e - local) : trimClip(clip, s + local, e);

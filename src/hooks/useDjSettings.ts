@@ -2,13 +2,12 @@ import { DEFAULT_SCRATCH, type ScratchSettings, type XfCurve } from "@/lib/dj/sc
 import { useEffect, useState } from "react";
 import { DEFAULT_RECORDING, type RecordingOptions } from "@/lib/dj/recording";
 
-export type JogStyle = "silver" | "pioneer3d" | "neonDisc3d" | "vinyl" | "combatLight" | "combatDark" | "extended";
+export type JogStyle = "silver" | "pioneer3d" | "neonDisc3d" | "combatLight" | "combatDark" | "extended";
 
 export const JOG_STYLES: { key: JogStyle; label: string }[] = [
   { key: "silver", label: "Silver" },
   { key: "neonDisc3d", label: "Neon 3D" },
   { key: "pioneer3d", label: "Pioneer 3D" },
-  { key: "vinyl", label: "djay-style Vinyl" },
   { key: "combatLight", label: "Combat Light" },
   { key: "combatDark", label: "Combat Dark" },
   { key: "extended", label: "Extended" },

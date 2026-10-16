@@ -43,6 +43,10 @@ describe('Studio editing rules', () => {
   it('reveals eighth-beat grid divisions at close zoom', () => {
     expect(studioGridStep(28)).toBe(1); expect(studioGridStep(160)).toBe(0.125);
   });
+  it("continues subdividing at very close zoom for thin clip edits", () => {
+    expect(studioGridStep(640)).toBe(1 / 32);
+    expect(studioGridStep(4096)).toBe(1 / 128);
+  });
   it('clamps independent fades so they never overlap', () => {
     const faded = { ...clip(1), fadeIn: 3, fadeOut: 3 };
     const env = studioFades(faded, 4, 10);
@@ -61,7 +65,10 @@ describe('Studio trim and split', () => {
   const src = new FakeBuf({ length: 4000 }) as unknown as AudioBuffer;
   const base: StudioClip = { id: 1, startBeat: 0, name: 'a', buffer: src, gain: 1, mute: false, solo: false };
   it('split keeps the full source so either half can be expanded back out', () => {
-    const [a, b] = splitClip(base, 1, 120, 2)!;
+    const parts = splitClip(base, 1, 120, 2);
+    expect(parts).not.toBeNull();
+    if (!parts) return;
+    const [a, b] = parts;
     expect(a.buffer.duration).toBe(1);
     expect(b.srcStart).toBe(1);
     expect(trimClip(b, 0, 4).buffer.duration).toBe(4);

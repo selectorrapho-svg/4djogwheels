@@ -236,7 +236,7 @@ export function SettingsPanel({
 
             {page === "appearance" && <>
             <Section title="App Skin / Theme">
-              <div className="grid grid-cols-3 landscape:grid-cols-7 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {THEMES.map((t) => (
                   <Pill key={t} on={theme === t} onClick={() => setTheme(t)}>
                     {t}

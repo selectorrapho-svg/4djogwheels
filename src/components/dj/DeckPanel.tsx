@@ -1,7 +1,7 @@
 import { Deck } from "@/lib/dj/engine";
 import { useDeck, getMixer } from "@/lib/dj/useMixer";
 import { JogWheel } from "./JogWheel";
-import { Fader } from "./Fader";
+import { DeckSlider } from "./DeckSlider";
 import { DeckTools } from "./DeckTools";
 import { SyncButton } from "./SyncButton";
 import { PreCueButton } from "./PreCueButton";
@@ -144,7 +144,7 @@ export function DeckPanel({ deck, side, compact, videoMode }: Props) {
         ) : (
           <div className="flex-1 min-h-0 flex items-center justify-center w-full py-1 relative landscape-jog-slot">
             {videoMode && <Button variant="ghost" size="icon" className="absolute top-1 left-1 z-10 dj-glass rounded-full" aria-label={`${showVideo ? "Hide" : "Show"} video deck ${deck.id}`} aria-expanded={showVideo} onClick={() => setShowVideo(v => !v)}><ChevronDown className={showVideo ? "" : "rotate-180"} /></Button>}
-            {videoMode && showVideo ? <div className="deck-video-preview relative w-full h-full overflow-hidden rounded-md bg-background"><VideoPreview deck={deck} />{!deck.videoEl && <span className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">Deck {deck.id} video</span>}</div> : <JogWheel deck={deck} size={272} accent={accent} />}
+            {videoMode && showVideo ? <div className="deck-video-preview relative w-full h-full overflow-hidden rounded-md bg-background"><VideoPreview deck={deck} />{!deck.videoEl && <span className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">Deck {deck.id} video</span>}</div> : <JogWheel deck={deck} size={244} accent={accent} />}
           </div>
         )}
 
@@ -217,14 +217,7 @@ function SideStrip({ deck, accent, side, compact }: { deck: Deck; accent: string
       <div className={`${compact ? "text-[11px]" : "text-sm"} font-medium`} style={{ color: accent }}>
         {deck.bpm ? (deck.bpm * deck.rate).toFixed(1) : "—"}
       </div>
-      <Fader
-        value={1 - (deck.pitch + 25) / 50}
-        onChange={(v) => deck.setPitch((1 - v) * 50 - 25)}
-        height={compact ? 56 : 90}
-        knobColor={accent}
-        marks
-      />
-      <Fader value={deck.volume} onChange={(v) => deck.setVolume(v)} height={compact ? 46 : 70} knobColor={accent} />
+      <DeckSlider deck={deck} height={compact ? 70 : 120} />
       <div className="flex flex-col items-center gap-1">
         <DeckTools deck={deck} accent={accent} side={side} />
       </div>

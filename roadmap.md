@@ -1,5 +1,10 @@
 # Task roadmap
 
+## Active reference controls and Studio
+- [ ] Finer Studio zoom and tiny-clip splitting with editing verification.
+- [ ] Gray/Light only, compact marked platters, grouped EQ/Waveforms/Video, glassy faders and Pitch/Volume selector.
+- [ ] Diagnose scratch against supplied video, improve DSP and verify loaded playback; headphone/device listening remains required.
+
 ## October 14 compact Studio and scratch
 - [ ] Improve sample-based scratch hand tracking and verify loaded audio.
 - [ ] Compact Studio, independent split-clip fades/reverse, round stretch handles, and playhead-anchored zoom.
