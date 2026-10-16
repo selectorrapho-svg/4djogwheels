@@ -259,7 +259,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
   useEffect(() => {
     const el = scrollRef.current; if (!el) return;
     const zoomAt = (next: number, x: number) => {
-      next = Math.max(6, Math.min(480, next));
+      next = Math.max(6, Math.min(4096, next));
       const local = x - el.getBoundingClientRect().left - 160;
       const beat = (el.scrollLeft + local) / zoomRef.current;
       zoomRef.current = next; setPx(next);
@@ -332,7 +332,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
       </div>
       <div className="flex items-center gap-1">
         <Button variant="outline" size="icon" className="size-9" aria-label="Zoom out" onClick={() => setPx(p => Math.max(6, p / 1.5))}><ZoomOut className="size-4" /></Button>
-        <Button variant="outline" size="icon" className="size-9" aria-label="Zoom in" onClick={() => setPx(p => Math.min(480, p * 1.5))}><ZoomIn className="size-4" /></Button>
+        <Button variant="outline" size="icon" className="size-9" aria-label="Zoom in" onClick={() => setPx(p => Math.min(4096, p * 1.5))}><ZoomIn className="size-4" /></Button>
       </div>
       <Button variant="outline" size="icon" className="size-9" aria-label="Add lane" onClick={() => setLaneCount(lanes + 1)}><Plus className="size-4" /></Button>
       <Button variant="outline" size="icon" className="size-9" aria-label="Track FX and pitch" disabled={!selected} onClick={() => setEditOpen(v => !v)}><SlidersHorizontal className="size-4" /></Button>
@@ -370,7 +370,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
         {Array.from({ length: lanes + 1 }, (_, i) => <ContextMenu key={i}><ContextMenuTrigger asChild><div data-studio-lane={i} className="relative h-16 border-b border-border" onPointerDown={e => { if (e.target === e.currentTarget) seekRuler(e); }} onContextMenu={e => { const box = e.currentTarget.getBoundingClientRect(); setHead(studioPlacement((e.clientX - box.left) / PX_PER_BEAT, snap, gridStep) * beatSec); }}>
         {clips.filter(c => (c.lane ?? 0) === i).map(c => {
           const tp = trim?.id === c.id ? trim : null;
-          const w = Math.max(6, tp ? tp.width : (clipDuration(c) / beatSec) * PX_PER_BEAT);
+          const w = Math.max(2, tp ? tp.width : (clipDuration(c) / beatSec) * PX_PER_BEAT);
           const color = LANE_COLORS[i % LANE_COLORS.length];
           return <ContextMenu key={c.id}><ContextMenuTrigger asChild>
             <div role="button" tabIndex={0} aria-label={`Move ${c.name}, starts at beat ${c.startBeat + 1}`} onPointerDown={e => dragClip(e, c)}
@@ -380,9 +380,9 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
               style={{ left: tp ? tp.left : c.startBeat * PX_PER_BEAT, width: w, background: `color-mix(in oklab, ${color} 35%, var(--background))` }}>
               <span className="absolute left-1 top-0.5 z-10 max-w-full truncate text-[10px] font-semibold text-foreground">{c.name}{c.pitch ? ` · ${c.pitch > 0 ? "+" : ""}${c.pitch}` : ""}{c.reverse ? " · REV" : ""}</span>
               <ClipWave buffer={c.buffer} width={Math.min(w, 4000)} />
-              <div aria-label={`Trim start of ${c.name}`} onPointerDown={e => trimEdge(e, c, "l")} className="absolute inset-y-0 left-0 z-20 w-2.5 cursor-ew-resize touch-none border-l-2 border-foreground/50 hover:bg-foreground/20" />
-              <div aria-label={`Trim end of ${c.name}`} onPointerDown={e => trimEdge(e, c, "r")} className="absolute inset-y-0 right-0 z-20 w-2.5 cursor-ew-resize touch-none border-r-2 border-foreground/50 hover:bg-foreground/20" />
-              <div role="slider" tabIndex={0} aria-label={`Stretch ${c.name}`} aria-valuemin={0.125} aria-valuemax={8} aria-valuenow={c.stretch ?? 1} onPointerDown={e => stretchClip(e, c)} onKeyDown={e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") update(c.id, { stretch: Math.max(0.125, Math.min(8, (c.stretch ?? 1) + (e.key === "ArrowRight" ? 0.05 : -0.05))) }); }} className="absolute right-0 top-0 z-30 grid size-4 place-items-center rounded-full border-2 border-foreground/60 bg-background shadow-md"><span className="size-1 rounded-full bg-foreground/70" /></div>
+              <div style={{ pointerEvents: cutTool || w < 24 ? "none" : undefined, visibility: cutTool || w < 24 ? "hidden" : undefined }} aria-label={`Trim start of ${c.name}`} onPointerDown={e => trimEdge(e, c, "l")} className="absolute inset-y-0 left-0 z-20 w-2.5 cursor-ew-resize touch-none border-l-2 border-foreground/50 hover:bg-foreground/20" />
+              <div style={{ pointerEvents: cutTool || w < 24 ? "none" : undefined, visibility: cutTool || w < 24 ? "hidden" : undefined }} aria-label={`Trim end of ${c.name}`} onPointerDown={e => trimEdge(e, c, "r")} className="absolute inset-y-0 right-0 z-20 w-2.5 cursor-ew-resize touch-none border-r-2 border-foreground/50 hover:bg-foreground/20" />
+              <div role="slider" tabIndex={cutTool ? -1 : 0} style={{ pointerEvents: cutTool || w < 32 ? "none" : undefined, visibility: cutTool || w < 32 ? "hidden" : undefined }} aria-label={`Stretch ${c.name}`} aria-valuemin={0.125} aria-valuemax={8} aria-valuenow={c.stretch ?? 1} onPointerDown={e => stretchClip(e, c)} onKeyDown={e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") update(c.id, { stretch: Math.max(0.125, Math.min(8, (c.stretch ?? 1) + (e.key === "ArrowRight" ? 0.05 : -0.05))) }); }} className="absolute right-0 top-0 z-30 grid size-4 place-items-center rounded-full border-2 border-foreground/60 bg-background shadow-md"><span className="size-1 rounded-full bg-foreground/70" /></div>
             </div>
             </ContextMenuTrigger><ContextMenuContent className="w-52">
               <ContextMenuItem onSelect={() => { setSel(c.id); const parts = splitClip(c, head, bpm, nextId.current++); if (parts) setClips(cs => cs.flatMap(x => x.id === c.id ? parts : [x])); }}><Scissors className="mr-2 size-4" />Split at playhead</ContextMenuItem>

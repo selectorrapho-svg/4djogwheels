@@ -92,7 +92,7 @@ export function Knob({
             return (
               <>
                 <path d={`M ${pt(-135)} A ${rr} ${rr} 0 1 1 ${pt(135)}`} fill="none" stroke="var(--knob-ring)" strokeWidth={compact ? 5 : 3} strokeLinecap="butt" />
-                {a1 - a0 > 0.5 && <path d={`M ${pt(a0)} A ${rr} ${rr} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${pt(a1)}`} fill="none" stroke="var(--muted-foreground)" strokeWidth={compact ? 5 : 3} strokeLinecap="butt" />}
+                {a1 - a0 > 0.5 && <path d={`M ${pt(a0)} A ${rr} ${rr} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${pt(a1)}`} fill="none" stroke="var(--control-blue)" strokeWidth={compact ? 5 : 3} strokeLinecap="butt" />}
               </>
             );
           })()}
