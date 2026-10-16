@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Activity, Grid3x3, Sliders, Music4 } from "lucide-react";
+import { Activity, Grid3x3, Sliders, Music4, Video } from "lucide-react";
 import { SamplerPanel } from "./SamplerPanel";
 import { Deck, Mixer } from "@/lib/dj/engine";
 import { useDeck } from "@/lib/dj/useMixer";
@@ -16,7 +16,7 @@ import { LevelMeter } from "./LevelMeter";
 import { Minus, Maximize2 } from "lucide-react";
 import { Fader } from "./Fader";
 
-type CenterView = "mixer" | "wave" | "pads" | "samples";
+type CenterView = "mixer" | "wave" | "pads" | "samples" | "video";
 
 const EQ_BANDS = ["high", "mid", "low"] as const;
 
@@ -34,23 +34,23 @@ export function CenterColumn({ deckA, deckB, mixer, videoMode = false }: { deckA
       {videoMode ? <div className="min-h-0 flex-1 flex items-center"><VideoMixStage deckA={deckA} deckB={deckB} embedded /></div> : hasVideo && <FloatingVideo deckA={deckA} deckB={deckB} />}
 
       {/* 3-button view switcher — Mixer|Samples / Waveform (default) / Pads */}
-      <div className="flex items-center justify-center gap-2 py-0.5">
+      <div className="flex items-center justify-center py-0.5"><div className="mixer-view-segments">
         {videoMode ? (
           <ViewButton active={view === "samples"} onClick={() => setView(current => current === "samples" ? null : "samples")} label="Samples">
             <Music4 className="w-4 h-4" />
           </ViewButton>
         ) : (
-          <ViewButton active={view === "mixer"} onClick={() => setView(current => current === "mixer" ? null : "mixer")} label="Mixer">
+          <ViewButton active={view === "mixer"} onClick={() => setView(current => current === "mixer" ? null : "mixer")} label="EQ">
             <Sliders className="w-4 h-4" />
           </ViewButton>
         )}
         <ViewButton active={view === "wave"} onClick={() => setView(current => current === "wave" ? null : "wave")} label="Waveforms">
           <Activity className="w-4 h-4" />
         </ViewButton>
-        <ViewButton active={view === "pads"} onClick={() => setView(current => current === "pads" ? null : "pads")} label="Hot cues">
-          <Grid3x3 className="w-4 h-4" />
+        <ViewButton active={view === "video"} onClick={() => setView(current => current === "video" ? null : "video")} label="Video">
+          <Video className="w-4 h-4" />
         </ViewButton>
-        {view === "wave" && <WaveformOptions />}
+        </div>{view === "wave" && <WaveformOptions />}
       </div>
 
       <div className={`${view && view !== "samples" ? "flex-1" : videoMode ? "hidden" : "flex-1"} min-h-0 overflow-hidden border-b border-border`}>
@@ -71,6 +71,7 @@ export function CenterColumn({ deckA, deckB, mixer, videoMode = false }: { deckA
           </div>
         )}
 
+        {view === "video" && <VideoMixStage deckA={deckA} deckB={deckB} embedded />}
         {view === "mixer" && <MixerView deckA={deckA} deckB={deckB} />}
 
         {view === "pads" && (
@@ -109,8 +110,7 @@ function ViewButton({ active, onClick, label, children }: { active: boolean; onC
       aria-pressed={active}
       aria-label={label}
       title={label}
-      className={`grid h-7 w-9 place-items-center rounded-md ${active ? "dj-glass-on text-primary" : "dj-glass text-muted-foreground"}`}
-      style={active ? { boxShadow: "0 0 10px rgba(80,160,255,0.35), var(--glass-shadow)" } : undefined}
+      className={`grid h-9 w-11 place-items-center rounded-none ${active ? "bg-muted text-primary" : "text-muted-foreground"}`}
     >
       {children}
     </Button>
@@ -189,10 +189,10 @@ function ChannelStrip({
 }) {
   return (
     <div className="mixer-channel flex min-w-0 flex-1 max-w-[110px] flex-col items-center justify-evenly gap-0 h-full max-h-72">
-      <Knob compact value={filter} min={-1} max={1} size={38} label="FILTER" color={accent} showTicks={false} onChange={onFilter} />
-      <Knob compact value={eq[0]} min={-24} max={24} size={34} label="HIGH" color={accent} showTicks={false} onChange={(v) => onBand("high", v)} />
-      <Knob compact value={eq[1]} min={-24} max={24} size={34} label="MID" color={accent} showTicks={false} onChange={(v) => onBand("mid", v)} />
-      <Knob compact value={eq[2]} min={-24} max={24} size={34} label="LOW" color={accent} showTicks={false} onChange={(v) => onBand("low", v)} />
+      <Knob compact value={filter} min={-1} max={1} size={48} label="FILTER" color={accent} showTicks={false} onChange={onFilter} />
+      <Knob compact value={eq[0]} min={-24} max={24} size={40} label="HIGH" color={accent} showTicks={false} onChange={(v) => onBand("high", v)} />
+      <Knob compact value={eq[1]} min={-24} max={24} size={40} label="MID" color={accent} showTicks={false} onChange={(v) => onBand("mid", v)} />
+      <Knob compact value={eq[2]} min={-24} max={24} size={40} label="LOW" color={accent} showTicks={false} onChange={(v) => onBand("low", v)} />
     </div>
   );
 }

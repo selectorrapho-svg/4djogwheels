@@ -14,13 +14,13 @@ import { VideoMixStage } from "./VideoMixStage";
 import { Knob } from "./Knob";
 import { CuePointGrid } from "./CuePointGrid";
 import { AppMode } from "@/hooks/useAppMode";
-import { Play, Music, Sliders, Activity, Grid3x3, X, Repeat, Disc3, ChevronLeft, ChevronRight, Library } from "lucide-react";
+import { Play, Music, Sliders, Activity, Grid3x3, X, Repeat, Disc3, ChevronLeft, ChevronRight, Library, Video } from "lucide-react";
 import { SyncButton } from "./SyncButton";
 import { TrackLibraryOverlay } from "./TrackLibraryOverlay";
 import { Button } from "@/components/ui/button";
 import brandLogo from "@/assets/djogwheels-user-logo-cropped.png";
 import { useState, useRef, useEffect } from "react";
-import { PitchMenu } from "./PitchMenu";
+import { DeckSlider } from "./DeckSlider";
 import { PreCueButton } from "./PreCueButton";
 import { ScratchDnaPanel } from "./ScratchDnaPanel";
 import { MixerView } from "./CenterColumn";
@@ -79,7 +79,7 @@ function DeckEqStrip({ deck, accent }: { deck: Deck; accent: string }) {
 }
 
 type Sheet = null | "tools";
-type MainView = "decks" | "wave" | "pads" | "mixer";
+type MainView = "decks" | "wave" | "pads" | "mixer" | "video";
 type ToolTab = "loop" | "cues" | "fx" | "samples" | "eq" | "dna";
 
 function BottomSheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
@@ -124,7 +124,7 @@ export function PortraitLayout({
   const [jogSize, setJogSize] = useState(160);
   const [stemsDeck, setStemsDeck] = useState<Deck | null>(null);
   useEffect(() => {
-    const resize = () => setJogSize(Math.min(210, Math.max(112, Math.min(window.innerWidth / 2 - 12, (window.innerHeight - 290) * 0.75))));
+    const resize = () => setJogSize(Math.min(186, Math.max(100, Math.min(window.innerWidth / 2 - 48, (window.innerHeight - 290) * 0.75))));
     resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
@@ -146,17 +146,18 @@ export function PortraitLayout({
         <MiniDeckHeader deck={deckLeft} side="left" onLibrary={() => setLibraryDeck(deckLeft)} />
         <MiniDeckHeader deck={deckRight} side="right" onLibrary={() => setLibraryDeck(deckRight)} />
       </div>
-      <div className={`grid ${mode === "video" ? "grid-cols-3" : "grid-cols-4"} h-10 shrink-0 border-b border-border bg-secondary`}>
-        {([ ["mixer", <Sliders className="size-5" />, "Mixer overview"], ["decks", <Disc3 className="size-5" />, "Jog wheels"], ["wave", <Activity className="size-5" />, "Waveforms"], ["pads", <Grid3x3 className="size-5" />, "Pads"] ] as const).map(([key, icon, label]) => (
-          (mode !== "video" || key !== "mixer") && <Button variant="ghost" key={key} onClick={() => setMainView(key)} title={label} aria-label={label} aria-pressed={mainView === key} className={`h-full rounded-none grid place-items-center ${mainView === key ? "text-primary bg-background" : "text-muted-foreground"}`}>{icon}</Button>
+      <div className="flex h-12 shrink-0 items-center justify-center border-b border-border bg-secondary"><div className="mixer-view-segments">
+        {([ ["mixer", <Sliders className="size-5" />, "EQ"], ["wave", <Activity className="size-5" />, "Waveforms"], ["video", <Video className="size-5" />, "Video"] ] as const).map(([key, icon, label]) => (
+          (mode !== "video" || key !== "mixer") && <Button variant="ghost" key={key} onClick={() => setMainView(current => current === key ? "decks" : key)} title={label} aria-label={label} aria-pressed={mainView === key} className={`h-9 w-16 rounded-none grid place-items-center ${mainView === key ? "text-primary bg-muted" : "text-muted-foreground"}`}>{icon}</Button>
         ))}
-      </div>
+        <Button variant="ghost" className="h-9 w-11 rounded-none" aria-label="Jog wheels" title="Jog wheels" aria-pressed={mainView === "decks"} onClick={() => setMainView("decks")}><Disc3 className="size-5" /></Button>
+      </div></div>
       <div key={pair} className="flex-1 min-h-0 flex flex-col relative overflow-hidden bg-background">
         {mainView === "mixer" && mode !== "video" && <MixerView deckA={deckLeft} deckB={deckRight} />}
          {mainView === "wave" && <div className="absolute right-2 top-2 z-20"><WaveformOptions /></div>}
         {mainView === "decks" && <div className="grid grid-cols-2 h-full items-center justify-items-center overflow-hidden gap-1 px-1">
-          <div className="min-w-0"><JogWheel deck={deckLeft} size={jogSize} accent="#ff8a3b" /></div>
-          <div className="min-w-0"><JogWheel deck={deckRight} size={jogSize} accent="#3bd2ff" /></div>
+          <div className="flex min-w-0 items-center gap-1"><DeckSlider deck={deckLeft} height={110} /><JogWheel deck={deckLeft} size={jogSize} accent="var(--accent-orange)" /></div>
+          <div className="flex min-w-0 items-center gap-1"><JogWheel deck={deckRight} size={jogSize} accent="var(--accent-blue)" /><DeckSlider deck={deckRight} height={110} /></div>
         </div>}
         {mainView === "wave" && (vertical ? (
           <div className="flex-1 min-h-0 flex gap-1">
@@ -173,7 +174,7 @@ export function PortraitLayout({
         </>))}
         {mainView === "pads" && <div className="flex h-full gap-1"><div className="flex-1 min-w-0"><CuePointGrid deck={deckLeft} /></div><div className="flex-1 min-w-0"><CuePointGrid deck={deckRight} /></div></div>}
          {stemsDeck && <div className="absolute inset-2 z-30"><StemsPanel inline deck={stemsDeck} accent="var(--accent-blue)" onClose={() => setStemsDeck(null)} /></div>}
-        {mode === "video" && (
+        {(mode === "video" || mainView === "video") && (
           <div className="absolute inset-x-0 top-2 flex justify-center pointer-events-none">
             <div className="pointer-events-auto w-[70%] max-w-[300px]">
               <VideoMixStage deckA={deckLeft} deckB={deckRight} />
@@ -183,7 +184,7 @@ export function PortraitLayout({
       </div>
 
       <div className="grid grid-cols-2 shrink-0 border-t border-border bg-secondary">
-        {[deckLeft, deckRight].map(d => <div key={d.id} className="flex items-center justify-center gap-3 h-9 text-sm font-semibold">{d.id}<PitchMenu deck={d} /><PreCueButton deck={d} /><Button variant="ghost" className="h-7 w-8 p-0" aria-label={`Stems deck ${d.id}`} aria-expanded={stemsDeck === d} onClick={() => setStemsDeck(current => current === d ? null : d)}>S</Button></div>)}
+        {[deckLeft, deckRight].map(d => <div key={d.id} className="flex items-center justify-center gap-3 h-9 text-sm font-semibold">{d.id}<PreCueButton deck={d} /><Button variant="ghost" className="h-7 w-8 p-0" aria-label={`Stems deck ${d.id}`} aria-expanded={stemsDeck === d} onClick={() => setStemsDeck(current => current === d ? null : d)}>S</Button></div>)}
       </div>
       <div className="grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-1 h-12 px-2 shrink-0 border-t border-border">
         <SyncButton onClick={() => deckLeft.toggleSync(deckRight)} active={deckLeft.syncLocked} bpm={deckLeft.bpm * deckLeft.rate} accent="#ff8a3b" width={58} height={32} />
@@ -193,9 +194,9 @@ export function PortraitLayout({
         <SyncButton onClick={() => deckRight.toggleSync(deckLeft)} active={deckRight.syncLocked} bpm={deckRight.bpm * deckRight.rate} accent="#3bd2ff" width={58} height={32} />
       </div>
       <div className="grid grid-cols-[1fr_1fr] gap-2 px-2 h-10 shrink-0 border-t border-border">
-        {[deckLeft, deckRight].map((deck) => <div key={deck.id} className="grid grid-cols-[1fr_1.4fr] gap-1 py-1">
-          <button onClick={() => deck.setCue()} aria-label={`Set cue deck ${deck.id}`} className="rounded-md border border-border bg-background text-[11px] font-bold tracking-widest text-muted-foreground active:text-foreground">SET</button>
-          <button onClick={() => deck.triggerCue()} aria-label={`Cue deck ${deck.id}`} className="rounded-md border-2 text-[11px] font-bold tracking-widest" style={{ borderColor: "var(--control-blue, #2f8cff)", color: "var(--control-blue, #2f8cff)" }}>CUE ↻</button>
+        {[deckLeft, deckRight].map((deck) => <div key={deck.id} className="cue-control-group grid grid-cols-2 py-1">
+          <Button variant="ghost" onClick={() => deck.setCue()} aria-label={`Set cue deck ${deck.id}`} className="rounded-md border border-border bg-background text-[11px] font-bold tracking-widest text-muted-foreground active:text-foreground">SET</Button>
+          <Button variant="ghost" onClick={() => deck.triggerCue()} aria-label={`Cue deck ${deck.id}`} className="rounded-md border-2 text-[11px] font-bold tracking-widest" style={{ borderColor: "var(--control-blue, #2f8cff)", color: "var(--control-blue, #2f8cff)" }}><Repeat className="size-5" /></Button>
         </div>)}
       </div>
       <div className="grid grid-cols-[48px_minmax(0,1fr)_48px] items-center gap-2 px-3 h-[68px] shrink-0 border-t border-border bg-secondary">
