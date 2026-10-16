@@ -8,6 +8,7 @@ interface FaderProps {
   width?: number;
   marks?: boolean;
   knobColor?: string;
+  label?: string;
 }
 
 // Hardware-style fader: recessed dark channel with tick marks and a tall
@@ -19,7 +20,8 @@ export function Fader({
   height = 160,
   width = 30,
   marks = true,
-  knobColor = "#ffffff",
+  knobColor = "var(--switch-thumb)",
+  label = "Fader",
 }: FaderProps) {
   const ref = useRef<HTMLDivElement>(null);
   const isV = orientation === "v";
@@ -36,11 +38,11 @@ export function Fader({
   );
 
   const onPointerDown = (e: React.PointerEvent) => {
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    e.currentTarget.setPointerCapture(e.pointerId);
     update(e.clientX, e.clientY);
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!(e.buttons & 1)) return;
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
     update(e.clientX, e.clientY);
   };
 
@@ -48,24 +50,26 @@ export function Fader({
     width: isV ? 9 : width,
     height: isV ? height : 9,
     borderRadius: 6,
-    background: "rgba(255,255,255,0.08)",
-    border: "1px solid rgba(255,255,255,0.14)",
-    boxShadow: "inset 0 1px 4px rgba(0,0,0,0.75), 0 1px 0 rgba(255,255,255,0.07)",
+    background: "var(--fader-line)",
+    border: "1px solid var(--glass-border)",
+    boxShadow: "var(--glass-shadow)",
     backdropFilter: "blur(14px)",
   };
 
   const capW = isV ? 30 : 22;
-  const capH = isV ? 22 : 40;
+  const capH = isV ? 13 : 40;
   const travel = isV ? height - capH : width - capW;
   const pos = (isV ? 1 - value : value) * travel;
 
   return (
     <div
       ref={ref}
+      role="slider" tabIndex={0} aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(value * 100)}
       className="relative flex items-center justify-center select-none"
       style={{ width: isV ? Math.max(width, capW) : width, height: isV ? height : capH, touchAction: "none" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
+      onKeyDown={e => { if (["ArrowUp", "ArrowRight", "ArrowDown", "ArrowLeft", "Home", "End"].includes(e.key)) { e.preventDefault(); onChange(e.key === "Home" ? 0 : e.key === "End" ? 1 : Math.max(0, Math.min(1, value + (["ArrowUp", "ArrowRight"].includes(e.key) ? 0.02 : -0.02)))); } }}
     >
       {marks && (
         <div
@@ -78,7 +82,7 @@ export function Fader({
               style={{
                 width: isV ? (i % 5 === 0 ? 7 : 4) : 1,
                 height: isV ? 1 : i % 5 === 0 ? 7 : 4,
-                background: "rgba(255,255,255,0.28)",
+                background: "var(--muted-foreground)",
               }}
             />
           ))}
@@ -94,10 +98,9 @@ export function Fader({
           top: isV ? pos : "50%",
           transform: isV ? "translateX(-50%)" : "translateY(-50%)",
           borderRadius: 11,
-          background: "rgba(255,255,255,0.15)",
-          border: "1px solid rgba(255,255,255,0.26)",
-          boxShadow:
-            "0 6px 18px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.35)",
+          background: "var(--fader-cap-fill)",
+          border: "1px solid var(--glass-border)",
+          boxShadow: "var(--glass-shadow)",
         }}
       >
         <div
@@ -105,9 +108,8 @@ export function Fader({
             width: isV ? capW * 0.6 : 3,
             height: isV ? 3 : capH * 0.6,
             borderRadius: 2,
-            background: knobColor,
+            background: "var(--switch-thumb)",
             opacity: 0.92,
-            boxShadow: `0 0 6px ${knobColor}80`,
           }}
         />
       </div>
