@@ -1,5 +1,9 @@
 # Task roadmap
 
+## Current repository update import
+- [x] Import source updates from selectorrapho-svg/3djogwheels while retaining current project asset ownership.
+- [ ] Verify regression tests and loaded-track mixer playback after import.
+
 ## Active reference controls and Studio
 - [ ] Finer Studio zoom and tiny-clip splitting with editing verification.
 - [ ] Gray/Light only, compact marked platters, grouped EQ/Waveforms/Video, glassy faders and Pitch/Volume selector.

@@ -9,6 +9,8 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
+- Scale entire mixer knobs rather than constraining their wrappers, because SVG rings and labels must stay aligned at short viewport heights.
+- Keep portrait pitch in the shared deck slider's fixed-pitch presentation, because landscape mode selection must not change portrait controls.
 - Keep the uploaded DJ mixer in `src/components/dj` with its audio engine in `src/lib/dj`, because the interface and playback logic are shared across desktop and portrait layouts.
 - Render the full-size deck waveforms in the orientation chosen in Settings (default vertical) in both center-column and portrait layouts, because the mixer should show upright scrolling tracks.
 - Keep one per-deck performance-tools entry point in the landscape strip, because separate cues, FX, and sampler triggers crowd narrow phones.

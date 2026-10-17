@@ -413,9 +413,12 @@
 
 .mixer-channel { container-type: size; }
 .mixer-channel .mixer-knob { flex-shrink: 0; }
-.mixer-channel .mixer-knob > div { max-height: min(54px, 17cqh); max-width: min(54px, 17cqh); }
-.mixer-channel .mixer-knob ~ .mixer-knob > div { max-height: min(42px, 14cqh); max-width: min(42px, 14cqh); }
 .mixer-channel .mixer-knob > span { margin-top: -2px; }
+/* Scale the complete control, including its SVG, cap and label, together.
+   Shrinking only its wrapper left full-size rings overlapping other knobs. */
+@container (max-height: 250px) { .mixer-channel .mixer-knob { zoom: .85; } }
+@container (max-height: 205px) { .mixer-channel .mixer-knob { zoom: .7; } }
+@container (max-height: 165px) { .mixer-channel .mixer-knob { zoom: .55; } }
 
 /* Studio (DAW) arrangement */
 :root {

@@ -37,7 +37,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
     // 'path' = time-stamped hand trajectory replayed with a small fixed delay.
     // The audio position is interpolated between real touch samples, so it
     // follows the hand exactly (no prediction, no overshoot, no jumps).
-    this.path = []; this.delay = 0.016; this.s1 = 0; this.s2 = 0;
+    this.path = []; this.delay = 0.024; this.s1 = 0; this.s2 = 0;
     this.port.onmessage = (e) => {
       const d = e.data;
       if (d.type === 'buffer') {
@@ -53,7 +53,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
         this.target = this.rate;
         this.tPos = this.pos; this.tVel = 0; this.age = 0;
         this.lastT = 0; this.lastP = this.pos; this.estVel = 0;
-        this.mode = 'pos'; this.path = [];
+        this.mode = 'pos'; this.path = []; this.delay = 0.024; this.late = 0;
         this.s1 = this.pos; this.s2 = this.pos;
         this.on = true;
       } else if (d.type === 'rate') {
@@ -93,10 +93,13 @@ class ScratchProcessor extends AudioWorkletProcessor {
         // just above the worst recent lateness.
         const late = Math.max(0, currentTime - when);
         this.late = Math.max(late, (this.late || 0) * 0.985);
-        const want = Math.max(0.012, Math.min(0.045, this.late + 0.008));
+        // Replay must lag by more than a complete 60Hz touch interval plus
+        // delivery jitter. A 12ms floor exhausted the path every 16.7ms,
+        // repeatedly stopping and catching up even during a steady push.
+        const want = Math.max(0.024, Math.min(0.045, this.late + 0.024));
         this.delay = want > this.delay ? want : this.delay + (want - this.delay) * 0.02;
         if (this.mode !== 'path' || this.path.length === 0) {
-          this.path = [{ t: Math.min(when, currentTime) - 0.016, p: this.pos }];
+          this.path = [{ t: Math.min(when, currentTime) - this.delay, p: this.pos }];
           this.s1 = this.pos; this.s2 = this.pos;
           this.mode = 'path';
         }

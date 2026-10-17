@@ -19,6 +19,21 @@ function processor() {
 }
 
 describe("scratch audio", () => {
+  it("does not stall between 60Hz timestamped hand points", () => {
+    const { node, message, block, clock } = processor();
+    const signal = Float32Array.from({ length: 96000 }, (_, i) => 0.4 * Math.sin(i * 2 * Math.PI * 440 / 48000));
+    message({ type: "buffer", channels: [signal.buffer] });
+    message({ type: "start", pos: 0.4, rate: 0 });
+    let next = 0;
+    const rates: number[] = [];
+    for (let i = 0; i < 180; i++) {
+      if (clock.currentTime >= next) { message({ type: "point", pos: 0.4 + next, when: next }); next += 1 / 60; }
+      block();
+      if (clock.currentTime > 0.1) rates.push(node.rate);
+    }
+    expect(Math.min(...rates)).toBeGreaterThan(0.75);
+    expect(Math.max(...rates)).toBeLessThan(1.25);
+  });
   it("releases sound with a ramp instead of an abrupt cut", () => {
     const { message, block } = processor();
     const signal = Float32Array.from({ length: 48000 }, (_, i) => 0.5 * Math.sin(i * 2 * Math.PI * 220 / 48000));

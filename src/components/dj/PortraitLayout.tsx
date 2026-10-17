@@ -156,8 +156,8 @@ export function PortraitLayout({
         {mainView === "mixer" && mode !== "video" && <MixerView deckA={deckLeft} deckB={deckRight} />}
          {mainView === "wave" && <div className="absolute right-2 top-2 z-20"><WaveformOptions /></div>}
         {mainView === "decks" && <div className="grid grid-cols-2 h-full items-center justify-items-center overflow-hidden gap-1 px-1">
-          <div className="flex min-w-0 items-center gap-1"><DeckSlider deck={deckLeft} height={110} /><JogWheel deck={deckLeft} size={jogSize} accent="var(--accent-orange)" /></div>
-          <div className="flex min-w-0 items-center gap-1"><JogWheel deck={deckRight} size={jogSize} accent="var(--accent-blue)" /><DeckSlider deck={deckRight} height={110} /></div>
+          <div className="flex min-w-0 items-center gap-1"><DeckSlider deck={deckLeft} height={110} pitchOnly /><JogWheel deck={deckLeft} size={jogSize} accent="var(--accent-orange)" /></div>
+          <div className="flex min-w-0 items-center gap-1"><JogWheel deck={deckRight} size={jogSize} accent="var(--accent-blue)" /><DeckSlider deck={deckRight} height={110} pitchOnly /></div>
         </div>}
         {mainView === "wave" && (vertical ? (
           <div className="flex-1 min-h-0 flex gap-1">
