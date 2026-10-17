@@ -219,7 +219,7 @@ export function JogWheel({ deck, size, accent }: Props) {
       // Let the delayed hand path finish playing before the motor takes over.
       const fling = releaseVelocity(hist, performance.now(), sens());
       const tok = ++relTok;
-      window.setTimeout(() => { if (tok === relTok && pointerId === -1) deck.releaseScratch(fling); }, deck.pathScratch ? 18 : 0);
+      window.setTimeout(() => { if (tok === relTok && pointerId === -1) deck.releaseScratch(fling); }, deck.pathScratch ? 48 : 0);
     };
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointermove", move);

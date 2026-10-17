@@ -14,7 +14,6 @@ import { Knob } from "./Knob";
 import { CuePointGrid } from "./CuePointGrid";
 import { LevelMeter } from "./LevelMeter";
 import { Minus, Maximize2 } from "lucide-react";
-import { Fader } from "./Fader";
 
 type CenterView = "mixer" | "wave" | "pads" | "samples" | "video";
 
@@ -168,7 +167,6 @@ export function MixerView({ deckA, deckB }: { deckA: Deck; deckB: Deck }) {
           onClick={toggleEq}
           aria-label="EQ on/off"
           className={`grid size-10 place-items-center rounded-full text-[10px] font-bold tracking-widest ${eqOn ? "dj-glass-on text-primary" : "dj-glass text-muted-foreground"}`}
-          style={eqOn ? { boxShadow: "0 0 12px rgba(80,160,255,0.35), var(--glass-shadow)" } : undefined}
         >
           EQ
         </Button>
@@ -189,10 +187,10 @@ function ChannelStrip({
 }) {
   return (
     <div className="mixer-channel flex min-w-0 flex-1 max-w-[110px] flex-col items-center justify-evenly gap-0 h-full max-h-72">
-      <Knob compact value={filter} min={-1} max={1} size={48} label="FILTER" color={accent} showTicks={false} onChange={onFilter} />
-      <Knob compact value={eq[0]} min={-24} max={24} size={40} label="HIGH" color={accent} showTicks={false} onChange={(v) => onBand("high", v)} />
-      <Knob compact value={eq[1]} min={-24} max={24} size={40} label="MID" color={accent} showTicks={false} onChange={(v) => onBand("mid", v)} />
-      <Knob compact value={eq[2]} min={-24} max={24} size={40} label="LOW" color={accent} showTicks={false} onChange={(v) => onBand("low", v)} />
+      <Knob compact value={filter} min={-1} max={1} size={54} label="FILTER" color={accent} showTicks={false} onChange={onFilter} />
+      <Knob compact value={eq[0]} min={-24} max={24} size={42} label="HIGH" color={accent} showTicks={false} onChange={(v) => onBand("high", v)} />
+      <Knob compact value={eq[1]} min={-24} max={24} size={42} label="MID" color={accent} showTicks={false} onChange={(v) => onBand("mid", v)} />
+      <Knob compact value={eq[2]} min={-24} max={24} size={42} label="LOW" color={accent} showTicks={false} onChange={(v) => onBand("low", v)} />
     </div>
   );
 }

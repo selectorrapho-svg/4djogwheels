@@ -1,5 +1,14 @@
 # Task roadmap
 
+## Current repository update import
+- [x] Import source updates from selectorrapho-svg/3djogwheels while retaining current project asset ownership.
+- [x] Verify regression tests and loaded-track mixer playback after import (28 tests passed; loaded playback resumes after jog release with no page errors).
+
+## October 16 selected priorities
+- [ ] Diagnose and improve audible loaded-track scratch continuity; timing regression and browser playback checks pass, but headphone/device comparison is still required.
+- [ ] Verify real stem separation and four-slider mute/solo playback; fix discovered failures.
+- [x] Restore always-visible portrait pitch and repair mixer knob sizing without volume sliders through the repository updates.
+
 ## Active reference controls and Studio
 - [ ] Finer Studio zoom and tiny-clip splitting with editing verification.
 - [ ] Gray/Light only, compact marked platters, grouped EQ/Waveforms/Video, glassy faders and Pitch/Volume selector.
