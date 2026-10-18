@@ -88,6 +88,10 @@ export function useWaveScratch(deck: Deck, axis: "x" | "y", pxPerSec: () => numb
     },
     onPointerUp: (e: React.PointerEvent) => {
       if (!active.current || e.pointerId !== pointerId.current) return;
+      // Flush the movement since the last animation frame so a fast final
+      // flick is not dropped when the finger lifts.
+      pos.current = axis === "x" ? e.clientX : e.clientY;
+      if (raf.current) { cancelAnimationFrame(raf.current); raf.current = 0; tick(); }
       // Serato-style: letting go snaps straight back to the platter speed.
       finish();
     },
