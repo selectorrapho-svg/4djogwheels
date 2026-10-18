@@ -196,7 +196,8 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
       const m = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
       if (m && k === "c") copySel(); else if (m && k === "x") cutSel(); else if (m && k === "v") paste(); else if (m && k === "d") { e.preventDefault(); duplicate(); }
-      else if (k === "s" && !m) split(); else if (k === "delete" || k === "backspace") { if (selected) { setClips(cs => cs.filter(x => x.id !== selected.id)); setSel(null); } }
+      else if (m && k === "z" && !e.shiftKey) { e.preventDefault(); undo(); } else if (m && (k === "y" || (k === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
+      else if (k === "s" && !m) split(); else if (k === "delete" || k === "backspace") { if (selected) { commit(cs => cs.filter(x => x.id !== selected.id)); setSel(null); } }
     };
     window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key);
   });
@@ -351,7 +352,11 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
       </div>
     </header>
     <div className="studio-transport flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border bg-secondary px-2 py-1.5">
+      <Button variant="outline" size="icon" className="size-9" aria-label="Go to start" disabled={!clips.length} onClick={() => { setHead(0); if (playing) start(0); }}><SkipBack className="size-4" /></Button>
       <Button variant="outline" size="icon" className="size-9 rounded-full" aria-label={playing ? "Stop" : "Play"} disabled={!clips.length} onClick={() => playing ? stop() : start(head)}>{playing ? <Square className="size-4" fill="currentColor" /> : <Play className="size-4" fill="currentColor" />}</Button>
+      <Button variant="outline" size="icon" className="size-9" aria-label="Go to end" disabled={!clips.length} onClick={() => { const end = studioDuration(clips, bpm); setHead(end); if (playing) start(end); }}><SkipForward className="size-4" /></Button>
+      <Button variant="outline" size="icon" className="size-9" aria-label="Undo (Ctrl+Z)" disabled={!history.current.past.length} onClick={undo}><Undo2 className="size-4" /></Button>
+      <Button variant="outline" size="icon" className="size-9" aria-label="Redo (Ctrl+Y)" disabled={!history.current.future.length} onClick={redo}><Redo2 className="size-4" /></Button>
       <Button variant={loop ? "default" : "outline"} size="icon" className="size-9" aria-label="Loop arrangement" aria-pressed={loop} onClick={() => setLoop(l => !l)}><Repeat className="size-4" /></Button>
       <Button variant={snap ? "default" : "outline"} size="icon" className="size-9" aria-label="Snap to beat" aria-pressed={snap} onClick={() => setSnap(v => !v)}><Magnet className="size-4" /></Button>
       <div className="studio-lcd rounded-md border border-border bg-background px-2 py-0.5 font-mono text-sm tabular-nums">{fmt(head)}</div>
