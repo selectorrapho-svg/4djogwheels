@@ -145,6 +145,33 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
     setClips(c => [...c, ...added]);
   };
   const update = (id: number, patch: Partial<StudioClip>) => setClips(c => c.map(x => x.id === id ? { ...x, ...patch } : x));
+  /** Snapshot the arrangement before a destructive edit so Undo can restore it. */
+  const commit = (fn: (cs: StudioClip[]) => StudioClip[]) => {
+    history.current.past.push(clips);
+    if (history.current.past.length > 100) history.current.past.shift();
+    history.current.future = [];
+    setClips(fn);
+    forceHistory(n => n + 1);
+  };
+  const undo = () => {
+    const prev = history.current.past.pop(); if (!prev) return;
+    history.current.future.push(clips); setClips(prev); forceHistory(n => n + 1);
+  };
+  const redo = () => {
+    const next = history.current.future.pop(); if (!next) return;
+    history.current.past.push(clips); setClips(next); forceHistory(n => n + 1);
+  };
+  /** Tap-tempo beat mapper: tap repeatedly in time with the music to set the project BPM. */
+  const tapTempo = () => {
+    const now = performance.now();
+    taps.current = taps.current.filter(t => now - t < 2500);
+    taps.current.push(now);
+    if (taps.current.length >= 3) {
+      const gaps = taps.current.slice(1).map((t, i) => t - taps.current[i]);
+      const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+      setBpm(Math.round(Math.max(30, Math.min(300, 60000 / avg)) * 10) / 10);
+    }
+  };
 
   const selected = clips.find(c => c.id === sel) ?? null;
   const copySel = () => { if (selected) { clip.current = selected; setHasClip(true); } };
