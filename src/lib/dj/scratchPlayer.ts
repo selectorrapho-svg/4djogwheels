@@ -116,6 +116,8 @@ class ScratchProcessor extends AudioWorkletProcessor {
         // Free spin: the platter leaves the hand at the fling speed.
         if (Number.isFinite(d.from)) this.rate = Math.max(-24, Math.min(24, d.from));
         this.mode = 'rate'; this.path = [];
+        // Drop any scheduled DNA rates still queued after motor takeover.
+        this.events = [];
       } else if (d.type === 'pos') {
         this.pos = d.pos * this.sourceRate;
       } else if (d.type === 'stop') {

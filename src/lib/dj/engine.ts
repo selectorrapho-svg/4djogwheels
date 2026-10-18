@@ -1193,7 +1193,9 @@ export class Deck {
     if (!this.scratching) this.scratchStart();
     const p = Math.max(0, Math.min(this.duration, pos));
     this.releaseToken++;
-    this.scratchPos = p;
+    // In path mode the worklet reports the real (delayed) position; mixing in
+    // the immediate hand position would make the feedback jump.
+    if (!this.pathScratch) this.scratchPos = p;
     this.scratchPlayer?.pushPoint(p, eventTime);
     this.scrubVideo();
   }
