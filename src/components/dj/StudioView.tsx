@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Download, Plus, Play, Square, Repeat, Trash2, Magnet, Scissors, Copy, ClipboardPaste, SplitSquareHorizontal, ZoomIn, ZoomOut, CopyPlus, RotateCcw, SlidersHorizontal, Link2 } from "lucide-react";
+import { ArrowLeft, Download, Plus, Play, Square, Repeat, Trash2, Magnet, Scissors, Copy, ClipboardPaste, SplitSquareHorizontal, ZoomIn, ZoomOut, CopyPlus, RotateCcw, SlidersHorizontal, Link2, Undo2, Redo2, SkipBack, SkipForward, Eraser, MousePointer2, Minus, Activity } from "lucide-react";
 import { computeBandedPeaks } from "@/lib/dj/engine";
 import { buildRgbStrip } from "@/lib/dj/rgbWave";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,10 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
   const [laneCount, setLaneCount] = useState(1);
   const [editOpen, setEditOpen] = useState(false);
   const [cutTool, setCutTool] = useState(false);
+  const [eraseTool, setEraseTool] = useState(false);
+  const history = useRef<{ past: StudioClip[][]; future: StudioClip[][] }>({ past: [], future: [] });
+  const [, forceHistory] = useState(0);
+  const taps = useRef<number[]>([]);
   const [trim, setTrim] = useState<{ id: number; left: number; width: number } | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
