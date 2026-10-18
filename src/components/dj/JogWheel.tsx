@@ -232,6 +232,7 @@ export function JogWheel({ deck, size, accent }: Props) {
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", up);
       el.removeEventListener("lostpointercapture", up);
+      relTok++; // cancel any delayed release still pending after unmount
       stopLoop();
       if (last.current.scratching) deck.endScratch();
     };
