@@ -18,6 +18,6 @@ export function DeckSlider({ deck, height = 120, pitchOnly = false }: { deck: De
         {(["pitch", "volume"] as const).map(m => <Button key={m} variant="ghost" className="h-9 w-full justify-start" aria-pressed={mode === m} onClick={() => { setMode(m); setOpen(false); }}>{m === "pitch" ? <Music2 /> : <Volume2 />}{m === "pitch" ? "Pitch" : "Volume"}</Button>)}
       </PopoverContent>
     </Popover>}
-    <Fader label={`${mode === "pitch" ? "Pitch" : "Volume"} deck ${deck.id}`} height={height} value={mode === "pitch" ? 1 - (deck.pitch + 25) / 50 : deck.volume} onChange={v => mode === "pitch" ? deck.setPitch((1 - v) * 50 - 25) : deck.setVolume(v)} />
+    <Fader marks={false} label={`${mode === "pitch" ? "Pitch" : "Volume"} deck ${deck.id}`} height={height} value={mode === "pitch" ? 1 - (deck.pitch + 25) / 50 : deck.volume} onChange={v => mode === "pitch" ? deck.setPitch((1 - v) * 50 - 25) : deck.setVolume(v)} />
   </div>;
 }
