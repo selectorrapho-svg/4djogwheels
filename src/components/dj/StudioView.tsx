@@ -424,7 +424,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
             <div role="button" tabIndex={0} aria-label={`Move ${c.name}, starts at beat ${c.startBeat + 1}`} onPointerDown={e => dragClip(e, c)}
               onContextMenu={e => { e.stopPropagation(); setSel(c.id); }}
               onKeyDown={e => { if (e.key === "ArrowRight") update(c.id, { startBeat: c.startBeat + 1 }); if (e.key === "ArrowLeft") update(c.id, { startBeat: Math.max(0, c.startBeat - 1) }); }}
-              className={`studio-clip absolute top-1.5 h-[52px] cursor-grab touch-none overflow-hidden rounded-md border ${sel === c.id ? "border-foreground ring-2 ring-foreground" : "border-foreground/20"} ${c.mute ? "opacity-40" : ""} ${cutTool ? "cursor-crosshair" : ""}`}
+              className={`studio-clip absolute top-1.5 h-[52px] cursor-grab touch-none overflow-hidden rounded-md border ${sel === c.id ? "border-foreground ring-2 ring-foreground" : "border-foreground/20"} ${c.mute ? "opacity-40" : ""} ${cutTool || eraseTool ? "cursor-crosshair" : ""}`}
               style={{ left: tp ? tp.left : c.startBeat * PX_PER_BEAT, width: w, background: `color-mix(in oklab, ${color} 35%, var(--background))` }}>
               <span className="absolute left-1 top-0.5 z-10 max-w-full truncate text-[10px] font-semibold text-foreground">{c.name}{c.pitch ? ` · ${c.pitch > 0 ? "+" : ""}${c.pitch}` : ""}{c.reverse ? " · REV" : ""}</span>
               <ClipWave buffer={c.buffer} width={Math.min(w, 4000)} />
