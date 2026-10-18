@@ -43,9 +43,7 @@ export function HotCuePanel({
         >
 
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-[11px] uppercase tracking-widest" style={{ color: accent }}>
-              Deck {deck.id} Cues
-            </h2>
+            <span className="flex-1" />
             <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Snap hot cues to grid deck ${deck.id}`} aria-pressed={deck.quantize} title="Snap hot cues to beat grid" onClick={() => deck.setQuantize(!deck.quantize)}>
               <Magnet className={`h-4 w-4 ${deck.quantize ? "text-primary" : "text-muted-foreground"}`} />
             </Button>
