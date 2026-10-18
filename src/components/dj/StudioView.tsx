@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Download, Plus, Play, Square, Repeat, Trash2, Magnet, Scissors, Copy, ClipboardPaste, SplitSquareHorizontal, ZoomIn, ZoomOut, CopyPlus, RotateCcw, SlidersHorizontal, Link2, Undo2, Redo2, SkipBack, SkipForward, Eraser, MousePointer2, Minus, Activity } from "lucide-react";
+import { ArrowLeft, Download, Plus, Play, Square, Repeat, Trash2, Magnet, Scissors, Copy, ClipboardPaste, SplitSquareHorizontal, ZoomIn, ZoomOut, CopyPlus, RotateCcw, SlidersHorizontal, Link2, Undo2, Redo2, SkipBack, SkipForward, Eraser, MousePointer2, Minus, Activity, Crosshair } from "lucide-react";
 import { computeBandedPeaks } from "@/lib/dj/engine";
 import { buildRgbStrip } from "@/lib/dj/rgbWave";
 import { Button } from "@/components/ui/button";
@@ -377,6 +377,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
       <div className="flex items-center gap-1">
         <Button variant="outline" size="icon" className="size-9" aria-label="Zoom out" onClick={() => setPx(p => Math.max(6, p / 1.5))}><ZoomOut className="size-4" /></Button>
         <Button variant="outline" size="icon" className="size-9" aria-label="Zoom in" onClick={() => setPx(p => Math.min(4096, p * 1.5))}><ZoomIn className="size-4" /></Button>
+        <Button variant="outline" size="icon" className="size-9" aria-label="Zoom in centered on the playhead" title="Zoom to playhead" onClick={() => { const el = scrollRef.current; if (!el) return; const next = Math.min(4096, zoomRef.current * 2); zoomRef.current = next; setPx(next); requestAnimationFrame(() => { el.scrollLeft = Math.max(0, (head / beatSec) * next - el.clientWidth / 2); }); }}><Crosshair className="size-4" /></Button>
       </div>
       <Button variant="outline" size="icon" className="size-9" aria-label="Add lane" onClick={() => setLaneCount(lanes + 1)}><Plus className="size-4" /></Button>
       <Button variant="outline" size="icon" className="size-9" aria-label="Track FX and pitch" disabled={!selected} onClick={() => setEditOpen(v => !v)}><SlidersHorizontal className="size-4" /></Button>
@@ -427,7 +428,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
               className={`studio-clip absolute top-1.5 h-[52px] cursor-grab touch-none overflow-hidden rounded-md border ${sel === c.id ? "border-foreground ring-2 ring-foreground" : "border-foreground/20"} ${c.mute ? "opacity-40" : ""} ${cutTool || eraseTool ? "cursor-crosshair" : ""}`}
               style={{ left: tp ? tp.left : c.startBeat * PX_PER_BEAT, width: w, background: `color-mix(in oklab, ${color} 35%, var(--background))` }}>
               <span className="absolute left-1 top-0.5 z-10 max-w-full truncate text-[10px] font-semibold text-foreground">{c.name}{c.pitch ? ` · ${c.pitch > 0 ? "+" : ""}${c.pitch}` : ""}{c.reverse ? " · REV" : ""}</span>
-              <ClipWave buffer={c.buffer} width={Math.min(w, 4000)} />
+              <div className="absolute inset-0" style={c.reverse ? { transform: "scaleX(-1)", opacity: 0.85 } : undefined}><ClipWave buffer={c.buffer} width={Math.min(w, 4000)} /></div>
               <div style={{ pointerEvents: cutTool || w < 24 ? "none" : undefined, visibility: cutTool || w < 24 ? "hidden" : undefined }} aria-label={`Trim start of ${c.name}`} onPointerDown={e => trimEdge(e, c, "l")} className="absolute inset-y-0 left-0 z-20 w-2.5 cursor-ew-resize touch-none border-l-2 border-foreground/50 hover:bg-foreground/20" />
               <div style={{ pointerEvents: cutTool || w < 24 ? "none" : undefined, visibility: cutTool || w < 24 ? "hidden" : undefined }} aria-label={`Trim end of ${c.name}`} onPointerDown={e => trimEdge(e, c, "r")} className="absolute inset-y-0 right-0 z-20 w-2.5 cursor-ew-resize touch-none border-r-2 border-foreground/50 hover:bg-foreground/20" />
               <div role="slider" tabIndex={cutTool ? -1 : 0} style={{ pointerEvents: cutTool || w < 32 ? "none" : undefined, visibility: cutTool || w < 32 ? "hidden" : undefined }} aria-label={`Stretch ${c.name}`} aria-valuemin={0.125} aria-valuemax={8} aria-valuenow={c.stretch ?? 1} onPointerDown={e => stretchClip(e, c)} onKeyDown={e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") update(c.id, { stretch: Math.max(0.125, Math.min(8, (c.stretch ?? 1) + (e.key === "ArrowRight" ? 0.05 : -0.05))) }); }} className="absolute right-0 top-0 z-30 grid size-4 place-items-center rounded-full border-2 border-foreground/60 bg-background shadow-md"><span className="size-1 rounded-full bg-foreground/70" /></div>
