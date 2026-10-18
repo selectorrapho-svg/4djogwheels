@@ -119,7 +119,7 @@ if (typeof window !== "undefined") {
       // Restore full-spectrum RGB waveforms: legacy single-colour choices
       // (red, blue, …) painted the whole waveform one colour.
       const waveColor = ["rgb3", "all", "zigzag", "beat", "bars"].includes(saved.waveColor) ? saved.waveColor : "rgb3";
-      current = { ...DEFAULT, ...saved, waveColor, jogStyle: normalizeJogStyle(saved.jogStyle) };
+      current = { ...DEFAULT, ...saved, waveColor, jogStyle: normalizeJogStyle(saved.jogStyle), scratch: { ...DEFAULT_SCRATCH, ...saved.scratch } };
     }
   } catch {}
   (globalThis as { __djWaveColor?: string; __djBrake?: boolean }).__djWaveColor = current.waveColor;
