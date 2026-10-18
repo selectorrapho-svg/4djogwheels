@@ -204,12 +204,17 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
   const dragClip = (e: React.PointerEvent, clip: StudioClip) => {
     if (e.button !== 0 && e.pointerType === "mouse") return;
     setSel(clip.id);
+    if (eraseTool) {
+      // Eraser tool: tap a clip to remove it from the arrangement.
+      commit(cs => cs.filter(x => x.id !== clip.id)); setSel(null);
+      return;
+    }
     if (cutTool) {
       // Scissors tool: tap anywhere on a clip to split exactly there (snapped to grid when Snap is on).
       const box = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
       const beat = studioPlacement((e.clientX - box.left) / PX_PER_BEAT, snap, gridStep / 4);
       const parts = splitClip(clip, beat * beatSec, bpm, nextId.current++);
-      if (parts) { setClips(cs => cs.flatMap(x => x.id === clip.id ? parts : [x])); setSel(parts[1].id); }
+      if (parts) { commit(cs => cs.flatMap(x => x.id === clip.id ? parts : [x])); setSel(parts[1].id); }
       return;
     }
     const el = e.currentTarget as HTMLElement; el.setPointerCapture(e.pointerId);
