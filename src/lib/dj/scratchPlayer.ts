@@ -272,14 +272,32 @@ class ScratchProcessor extends AudioWorkletProcessor {
       const rp = advanced ? prevPos : this.pos;
       const i = Math.floor(rp);
       const f = rp - i;
+      // Source samples covered by this output sample (anti-aliasing span).
+      const span = Math.abs(this.rate) * ratio;
       // A stationary platter must be silent: repeatedly outputting the same
       // sample creates a DC/buzzy tone on some Bluetooth and phone outputs.
-      const slow = Math.min(1, Math.abs(this.rate) * 90);
+      // Gate on stillness (12 ms), not on speed, so reversals keep level.
+      if (Math.abs(this.rate) < 0.002) this.still++; else this.still = 0;
+      const slow = this.still > stillSamples ? 0 : 1;
       this.motionGain += (slow - this.motionGain) * motionK;
       this.envelope += ((this.on ? 1 : 0) - this.envelope) * gainK;
       for (let c = 0; c < out.length; c++) {
         const src = this.ch[c < this.ch.length ? c : this.ch.length - 1];
-        const value = this.lagrange6(src, i, f);
+        let value;
+        if (span <= 1.25) value = this.lagrange6(src, i, f);
+        else {
+          // Fast scratch reads several source samples per output sample; a
+          // point sample aliases into harsh fizz. Average sub-positions
+          // across the span like real DJ software's resampling quality.
+          const J = Math.min(4, Math.ceil(span));
+          let acc = 0;
+          for (let j = 0; j < J; j++) {
+            const pp = rp + ((j + 0.5) * (this.rate * ratio)) / J;
+            const i2 = Math.floor(pp);
+            acc += this.lagrange6(src, i2, pp - i2);
+          }
+          value = acc / J;
+        }
         const filtered = value - (this.dcX[c] || 0) + dcPole * (this.dcY[c] || 0);
         this.dcX[c] = value; this.dcY[c] = filtered;
         out[c][s] = filtered * this.motionGain * this.envelope;
