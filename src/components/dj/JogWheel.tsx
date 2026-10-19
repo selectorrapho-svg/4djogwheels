@@ -216,10 +216,12 @@ export function JogWheel({ deck, size, accent }: Props) {
       handDown.current = false;
       stopLoop();
       if (!was) return;
-      // Let the delayed hand path finish playing before the motor takes over.
+      // Let the delayed hand path finish playing before the motor takes over;
+      // the worklet coasts at the hand's last speed until then, so one delay
+      // window (~30 ms) is enough and there is no stop-start hole on release.
       const fling = releaseVelocity(hist, performance.now(), sens());
       const tok = ++relTok;
-      window.setTimeout(() => { if (tok === relTok && pointerId === -1) deck.releaseScratch(fling); }, deck.pathScratch ? 48 : 0);
+      window.setTimeout(() => { if (tok === relTok && pointerId === -1) deck.releaseScratch(fling); }, deck.pathScratch ? 30 : 0);
     };
     el.addEventListener("pointerdown", down);
     el.addEventListener("pointermove", move);
