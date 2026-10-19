@@ -5,7 +5,7 @@
 - [x] Verify regression tests and loaded-track mixer playback after import (28 tests passed; loaded playback resumes after jog release with no page errors).
 
 ## October 16 selected priorities
-- [ ] Diagnose and improve audible loaded-track scratch continuity; timing regression and browser playback checks pass, but headphone/device comparison is still required.
+- [x] Scratch engine round: reversal-aware level gate (no more tick on every direction change), release coast bridging the motor hand-off (JogWheel wait 48→30 ms), adaptive replay delay from the real touch interval, and anti-aliased fast reads. 47 tests pass; preview scratch verified with a loaded track. Device ear check still pending.
 - [ ] Verify real stem separation and four-slider mute/solo playback; fix discovered failures.
 - [x] Restore always-visible portrait pitch and repair mixer knob sizing without volume sliders through the repository updates.
 
