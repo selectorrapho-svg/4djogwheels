@@ -1,5 +1,15 @@
 # Task roadmap
 
+## October 19 account, Studio, appearance and scratch upgrade
+- [ ] Secure persistent login/logout and password-manager support; profile decision awaiting user answer.
+- [ ] Admin-generated Pro codes for 1–7 months and one year.
+- [ ] Offline Studio projects and recordings in the device's duigsstudio folder.
+- [ ] Studio grid eraser/delete, 70+ track/event FX, and undo/redo including splits and cuts.
+- [ ] Remove jogwheel scratch settings; sharpen waveforms and add independent dark/light waveform background.
+- [ ] Reference-inspired vinyl, performance icons, gray/light glass controls/library; blue blinking sync without BPM; remove orange accents.
+- [ ] Refine baby scratches, chirps and flings against the reference video; no video attached in this turn, device headphone acceptance pending.
+- [ ] Verify editing, recordings, loaded-track scratch and account flows; APK persistence requires installed-device checks.
+
 ## Current repository update import
 - [x] Import source updates from selectorrapho-svg/3djogwheels while retaining current project asset ownership.
 - [x] Verify regression tests and loaded-track mixer playback after import (28 tests passed; loaded playback resumes after jog release with no page errors).
