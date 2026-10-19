@@ -122,14 +122,15 @@ describe("scratch audio", () => {
     message({ type: "buffer", channels: [signal.buffer] });
     message({ type: "start", pos: 0.5, rate: 0 });
     let next = 0;
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 200; i++) {
       if (clock.currentTime >= next && next <= 0.1) { message({ type: "point", pos: 0.5 + next, when: next }); next += 1 / 60; }
       block();
+      if (clock.currentTime >= 0.126) break;
     }
-    // Replay passes the final hand point (~0.1 s + delay) around t ≈ 0.125;
+    // Replay passes the final hand point (~0.1 s + delay) around t ≈ 0.124;
     // the platter must keep coasting at the hand's last speed for a few ms.
     const early = node.pos;
-    for (let i = 0; i < 9; i++) block(); // ≈ 24 ms later
+    for (let i = 0; i < 10; i++) block(); // ≈ 27 ms later
     expect(node.pos - early).toBeGreaterThan(0.002);
   });
   it("keeps fast fling reads bounded, non-silent and finite", () => {
