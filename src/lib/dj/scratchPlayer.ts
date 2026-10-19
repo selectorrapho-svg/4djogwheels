@@ -28,6 +28,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
     this.events = [];
     this.sourceRate = sampleRate;
     this.session = 0;
+    this.still = 0; this.pv = 0; this.iv = 0; this.ptT = 0;
     // 'rate' = follow a signed speed (motor / brake / backspin)
     // 'pos'  = position servo: follow the platter's absolute position so the
     //          audio can never drift away from the hand (no velocity integration).
@@ -47,6 +48,7 @@ class ScratchProcessor extends AudioWorkletProcessor {
       } else if (d.type === 'start') {
         this.events = []; this.envelope = 0; this.motionGain = 0;
         this.session = d.session || 0;
+        this.still = 0; this.pv = 0; this.iv = 0; this.ptT = 0;
         this.dcX.fill(0); this.dcY.fill(0);
         this.pos = d.pos * this.sourceRate;
         this.rate = d.rate || 0;
@@ -93,10 +95,14 @@ class ScratchProcessor extends AudioWorkletProcessor {
         // just above the worst recent lateness.
         const late = Math.max(0, currentTime - when);
         this.late = Math.max(late, (this.late || 0) * 0.985);
-        // Replay must lag by more than a complete 60Hz touch interval plus
-        // delivery jitter. A 12ms floor exhausted the path every 16.7ms,
-        // repeatedly stopping and catching up even during a steady push.
-        const want = Math.max(0.024, Math.min(0.045, this.late + 0.024));
+        // Replay must lag by more than the touch interval plus delivery
+        // jitter, or the head exhausts the path every frame and the sound
+        // chops. Measure the real touch interval so high-rate touch screens
+        // (120 Hz+) get a tighter hand→audio delay instead of a fixed 24ms.
+        const iv = this.ptT > 0 && when > this.ptT && when - this.ptT < 0.06 ? when - this.ptT : 0.0167;
+        this.iv = this.iv ? this.iv + (iv - this.iv) * 0.3 : 0.0167;
+        this.ptT = when;
+        const want = Math.max(0.012, Math.min(0.045, Math.max(this.iv + 0.008, this.late + 0.005)));
         this.delay = want > this.delay ? want : this.delay + (want - this.delay) * 0.02;
         if (this.mode !== 'path' || this.path.length === 0) {
           this.path = [{ t: Math.min(when, currentTime) - this.delay, p: this.pos }];
@@ -203,7 +209,15 @@ class ScratchProcessor extends AudioWorkletProcessor {
         const a = P[ia], b = P[ia + 1];
         let goal;
         if (!b || rt <= a.t) goal = a.p;
-        else if (rt >= b.t) goal = b.p;
+        else if (rt >= b.t) {
+          // Past the newest touch point: keep the last measured hand speed,
+          // decaying over ~12 ms, instead of freezing. A freeze stalls the
+          // record audibly whenever the head catches the path (late delivery
+          // or a fling release); the coast bridges it until a new point or
+          // the release motor takes over.
+          const coast = Math.min(rt - b.t, 0.012);
+          goal = b.p + this.pv * (coast - (coast * coast) / 0.024);
+        }
         else {
           // Cubic Hermite with finite-difference tangents: the platter speed
           // changes smoothly between touch samples instead of stepping every
