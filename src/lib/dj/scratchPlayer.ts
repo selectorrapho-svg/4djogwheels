@@ -183,9 +183,12 @@ class ScratchProcessor extends AudioWorkletProcessor {
     const maxAge = 0.04 * sampleRate;             // extrapolate hand motion ≤40 ms
     const vDecay = Math.exp(-1 / (0.09 * sampleRate)); // gentle coast after that
     const gainK = 1 - Math.exp(-1 / (0.001 * sampleRate));
-    // Slower motion gate (4 ms) so passing through zero speed on a reversal
-    // fades instead of chopping the signal — the chop was the audible 'tik'.
+    // Motion gate (4 ms). It only closes after the platter has genuinely been
+    // still for ~12 ms: a reversal passes through zero speed briefly and MUST
+    // keep full level — ducking on every direction change was heard as a tick
+    // on every baby scratch. A stopped platter still goes silent.
     const motionK = 1 - Math.exp(-1 / (0.004 * sampleRate));
+    const stillSamples = 0.012 * sampleRate;
     const pathK = 1 - Math.exp(-1 / (0.0018 * sampleRate)); // smooths speed steps between touch samples (zipper/cut noise)
     const abW = 2 * Math.PI * 45 / sampleRate;
     const abA = 2 * abW, abB = abW * abW;
@@ -229,12 +232,13 @@ class ScratchProcessor extends AudioWorkletProcessor {
           const u2 = u * u, u3 = u2 * u;
           goal = (2*u3 - 3*u2 + 1) * a.p + (u3 - 2*u2 + u) * m1 + (-2*u3 + 3*u2) * b.p + (u3 - u2) * m2;
         }
+        if (b && b.t > a.t) this.pv = (b.p - a.p) / (b.t - a.t);
         // Two cascaded poles round any remaining corners without audible lag.
         this.s1 += (goal - this.s1) * pathK;
         this.s2 += (this.s1 - this.s2) * pathK;
         const np = this.s2;
         let r = (np - this.pos) / ratio;
-        if (r > 24) r = 24; else if (r < -24) r = -24;
+        if (r > 16) r = 16; else if (r < -16) r = -16;
         this.rate = r;
         this.pos += r * ratio;
         advanced = true;
