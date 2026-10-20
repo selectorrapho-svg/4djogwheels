@@ -14,13 +14,129 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      pro_codes: {
+        Row: {
+          code_hash: string
+          device_id: string
+          id: string
+          issued_at: string
+          issued_by: string
+          months: number
+          redeemed_at: string | null
+          target_user_id: string
+        }
+        Insert: {
+          code_hash: string
+          device_id: string
+          id?: string
+          issued_at?: string
+          issued_by: string
+          months: number
+          redeemed_at?: string | null
+          target_user_id: string
+        }
+        Update: {
+          code_hash?: string
+          device_id?: string
+          id?: string
+          issued_at?: string
+          issued_by?: string
+          months?: number
+          redeemed_at?: string | null
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pro_codes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pro_devices: {
+        Row: {
+          device_id: string
+          expires_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          device_id: string
+          expires_at: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          device_id?: string
+          expires_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pro_devices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          name?: string
+          phone?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      issue_pro_code: {
+        Args: { _device: string; _months: number; _user_id: string }
+        Returns: string
+      }
+      redeem_pro_code: {
+        Args: { _code: string; _device: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
