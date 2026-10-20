@@ -1,7 +1,8 @@
 # Task roadmap
 
 ## October 19 account, Studio, appearance and scratch upgrade
-- [ ] Secure persistent login/logout and password-manager support; profile decision awaiting user answer.
+- [ ] Secure persistent login/logout and password-manager support; profiles confirmed, passwords never readable by admins.
+- [ ] Restrict Studio mode to Pro users, including offline entitlement checks.
 - [ ] Admin-generated Pro codes for 1–7 months and one year.
 - [ ] Offline Studio projects and recordings in the device's duigsstudio folder.
 - [ ] Studio grid eraser/delete, 70+ track/event FX, and undo/redo including splits and cuts.
