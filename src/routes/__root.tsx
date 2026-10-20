@@ -10,6 +10,8 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
+import { supabase } from "@/integrations/supabase/client";
+import { initializeLicense, refreshLicense } from "@/lib/dj/license";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -119,6 +121,18 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+  useEffect(() => {
+    if (new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery") sessionStorage.setItem("djog.recovery", "1");
+    const cleanup = initializeLicense();
+    const { data } = supabase.auth.onAuthStateChange(event => {
+      if (!["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED", "PASSWORD_RECOVERY"].includes(event)) return;
+      if (event === "PASSWORD_RECOVERY") sessionStorage.setItem("djog.recovery", "1");
+      // Never await Auth calls inside the auth callback (refresh-token lock).
+      window.setTimeout(() => { void refreshLicense(); void router.invalidate(); if(event !== "SIGNED_OUT") void queryClient.invalidateQueries(); }, 0);
+    });
+    return () => { data.subscription.unsubscribe(); cleanup(); };
+  }, [queryClient, router]);
 
   return (
     <QueryClientProvider client={queryClient}>
