@@ -53,6 +53,8 @@ export interface DjSettings {
   videoFollowCrossfader: boolean;
   waveColor: string;
   waveOrientation: "vertical" | "horizontal";
+  /** Waveform backdrop: dark Serato-style or light. */
+  waveBg: "dark" | "light";
   brakeOnPause: boolean;
   waveHighContrast: boolean;
   waveScratch: boolean;
@@ -85,7 +87,9 @@ const DEFAULT: DjSettings = {
   videoFx: "none",
   videoFollowCrossfader: true,
   waveColor: "rgb3",
-  waveOrientation: "vertical",
+  // Landscape decks show horizontal scrolling waveforms by default (Serato-style).
+  waveOrientation: "horizontal",
+  waveBg: "dark",
   brakeOnPause: false,
   waveHighContrast: false,
   waveScratch: true,
