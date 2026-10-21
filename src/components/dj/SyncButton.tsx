@@ -1,4 +1,5 @@
-// OS-style frosted glass hardware button with rounded caps (theme aware).
+// Serato-style dark glass oval button. When synced it blinks blue and shows
+// just "SYNC" — no tempo readout.
 export function SyncButton({
   onClick,
   active,
@@ -6,7 +7,6 @@ export function SyncButton({
   width = 62,
   height = 26,
   accent,
-  bpm,
 }: {
   onClick: () => void;
   active?: boolean;
@@ -14,19 +14,18 @@ export function SyncButton({
   width?: number;
   height?: number;
   accent?: string;
-  /** Effective (tempo-adjusted) BPM shown djay-style while synced. */
+  /** Kept for API compatibility; the tempo is no longer shown while synced. */
   bpm?: number;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center leading-none active:scale-[0.97] transition-transform ${
-        active ? "dj-glass-on" : "dj-glass"
+      className={`flex items-center justify-center leading-none rounded-full active:scale-[0.97] transition-transform ${
+        active ? "dj-glass-on sync-blinking" : "dj-glass"
       }`}
       style={{
         width,
         height,
-        borderRadius: 7,
         boxShadow: active && accent ? `0 0 12px ${accent}88, var(--glass-shadow)` : undefined,
       }}
     >
@@ -35,16 +34,11 @@ export function SyncButton({
         style={{
           fontSize: Math.max(8, height * 0.38),
           letterSpacing: "0.12em",
-          color: active && accent ? accent : "var(--foreground)",
+          color: active ? "var(--control-blue)" : "var(--foreground)",
         }}
       >
-        {active && bpm ? "SYNCED" : label}
+        {label}
       </span>
-      {active && bpm ? (
-        <span className="tabular-nums font-bold leading-none" style={{ fontSize: Math.max(9, height * 0.4), color: accent ?? "var(--foreground)" }}>
-          {bpm.toFixed(1)}
-        </span>
-      ) : null}
     </button>
   );
 }
