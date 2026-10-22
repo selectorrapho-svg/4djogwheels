@@ -1,5 +1,12 @@
 # Task roadmap
 
+## October 22 saves, dark controls and phone accounts
+- [ ] Wire Studio Save/Open and save exported recordings to duigsstudio.
+- [ ] Attach Key Adjust to both deck layouts; preserve tempo on key shifts.
+- [ ] Keep all waveform backgrounds dark, including in light app mode; update waveform/video button icons.
+- [ ] Phone/password signup and login only, preserving profiles; SMS verification for recovery.
+- [ ] Verify save/reopen, key controls and account flows; identify SMS/device blockers.
+
 ## October 19 account, Studio, appearance and scratch upgrade
 - [ ] Secure persistent login/logout and password-manager support; profiles confirmed, passwords never readable by admins.
 - [ ] Restrict Studio mode to Pro users, including offline entitlement checks.
