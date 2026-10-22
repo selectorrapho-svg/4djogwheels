@@ -184,7 +184,7 @@ export function HorizontalWaveform({ deck, color, index }: Props) {
   });
 
   return (
-    <div className={`relative w-full h-full bg-background ${settings.waveHighContrast ? "wave-high-contrast" : ""}`} style={{ touchAction: "none" }} {...(settings.waveScratch ? scratch : {})}>
+    <div className={`wave-surface relative w-full h-full ${settings.waveHighContrast ? "wave-high-contrast" : ""}`} style={{ touchAction: "none" }} {...(settings.waveScratch ? scratch : {})}>
       <canvas ref={canvasRef} className="w-full h-full block" /><WaveAnalysisStatus deck={deck} />
 
       <div className="absolute right-1 top-1 flex gap-1">

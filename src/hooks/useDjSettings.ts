@@ -53,8 +53,8 @@ export interface DjSettings {
   videoFollowCrossfader: boolean;
   waveColor: string;
   waveOrientation: "vertical" | "horizontal";
-  /** Waveform backdrop: dark Serato-style or light. */
-  waveBg: "dark" | "light";
+  /** Waveforms remain dark independently of the app theme. */
+  waveBg: "dark";
   brakeOnPause: boolean;
   waveHighContrast: boolean;
   waveScratch: boolean;
@@ -123,7 +123,7 @@ if (typeof window !== "undefined") {
       // Restore full-spectrum RGB waveforms: legacy single-colour choices
       // (red, blue, …) painted the whole waveform one colour.
       const waveColor = ["rgb3", "all", "zigzag", "beat", "bars"].includes(saved.waveColor) ? saved.waveColor : "rgb3";
-      current = { ...DEFAULT, ...saved, waveColor, jogStyle: normalizeJogStyle(saved.jogStyle), scratch: { ...DEFAULT_SCRATCH, ...saved.scratch } };
+      current = { ...DEFAULT, ...saved, waveBg: "dark", waveColor, jogStyle: normalizeJogStyle(saved.jogStyle), scratch: { ...DEFAULT_SCRATCH, ...saved.scratch } };
     }
   } catch {}
   (globalThis as { __djWaveColor?: string; __djBrake?: boolean }).__djWaveColor = current.waveColor;
@@ -142,7 +142,7 @@ export function useDjSettings(): [DjSettings, (p: Partial<DjSettings>) => void] 
     };
   }, []);
   const update = (p: Partial<DjSettings>) => {
-    current = { ...current, ...p, jogStyle: normalizeJogStyle(p.jogStyle ?? current.jogStyle) };
+    current = { ...current, ...p, waveBg: "dark", jogStyle: normalizeJogStyle(p.jogStyle ?? current.jogStyle) };
     (globalThis as { __djWaveColor?: string; __djBrake?: boolean }).__djWaveColor = current.waveColor;
   (globalThis as { __djBrake?: boolean }).__djBrake = current.brakeOnPause;
     publish(current);
