@@ -19,7 +19,6 @@ export function WaveformOptions({ topVisible, onTopVisible }: { topVisible?: boo
             key={value}
             onClick={() => update({ waveOrientation: value })}
             aria-pressed={settings.waveOrientation === value}
-            className="flex h-11 w-full items-center gap-3 rounded-2xl px-3 text-sm"
             className={`flex h-11 w-full justify-start gap-3 rounded-2xl px-3 text-sm ${settings.waveOrientation === value ? "bg-secondary" : ""}`}
           >
             <Check className={`size-4 ${settings.waveOrientation === value ? "" : "opacity-0"}`} />{label}
