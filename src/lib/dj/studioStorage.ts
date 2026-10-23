@@ -114,7 +114,7 @@ export async function loadStudioProject(name: string, ctx: BaseAudioContext): Pr
       const trimmed = trimClip({ ...rest, buffer: source } as StudioClip, rest.srcStart ?? 0, rest.srcEnd ?? source.duration);
       clips.push({ ...rest, buffer: trimmed.buffer, source });
     } catch {
-      /* skip unreadable clip */
+      throw new Error(`Could not open audio for ${rest.name}. Your saved project has not been changed.`);
     }
   }
   return { bpm: manifest.bpm, clips };
@@ -127,8 +127,8 @@ export async function deleteStudioProject(name: string) {
 /** Save a finished recording (mixer or Studio export) into duigsstudio/recordings. */
 export async function saveRecording(name: string, data: Blob): Promise<string> {
   await ensureDir(RECORDINGS);
-  const ext = data.type.includes("mpeg") ? ".mp3" : data.type.includes("ogg") ? ".ogg" : ".wav";
-  const file = safeName(name).replace(/\.(wav|mp3|ogg)$/i, "") + ext;
+  const ext = data.type.includes("mpeg") ? ".mp3" : data.type.includes("ogg") ? ".ogg" : data.type.includes("mp4") ? ".mp4" : data.type.includes("webm") ? ".webm" : ".wav";
+  const file = safeName(name).replace(/\.(wav|mp3|ogg|mp4|webm)$/i, "") + ext;
   await Filesystem.writeFile({ path: `${RECORDINGS}/${file}`, directory: Directory.Documents, data: await blobToBase64(data), recursive: true });
   return `${STUDIO_ROOT}/recordings/${file}`;
 }
