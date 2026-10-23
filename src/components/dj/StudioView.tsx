@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Download, Plus, Play, Square, Repeat, Trash2, Magnet, Scissors, Copy, ClipboardPaste, SplitSquareHorizontal, ZoomIn, ZoomOut, CopyPlus, RotateCcw, SlidersHorizontal, Link2, Undo2, Redo2, SkipBack, SkipForward, Eraser, MousePointer2, Minus, Activity, Crosshair } from "lucide-react";
+import { ArrowLeft, Download, Save, FolderOpen, X, Plus, Play, Square, Repeat, Trash2, Magnet, Scissors, Copy, ClipboardPaste, SplitSquareHorizontal, ZoomIn, ZoomOut, CopyPlus, RotateCcw, SlidersHorizontal, Link2, Undo2, Redo2, SkipBack, SkipForward, Eraser, MousePointer2, Minus, Activity, Crosshair } from "lucide-react";
 import { computeBandedPeaks } from "@/lib/dj/engine";
 import { buildRgbStrip } from "@/lib/dj/rgbWave";
 import { Button } from "@/components/ui/button";
 import type { Mixer } from "@/lib/dj/engine";
 import { splitClip, trimClip, clipSource, clipDuration, studioGridStep, studioPitch, studioPlacement, syncClip, studioDuration, studioSchedule, studioWav, type StudioClip } from "@/lib/dj/studio";
 import { connectStudioFx, prepareStudioClip } from "@/lib/dj/studioAudio";
+import { saveStudioProject, listStudioProjects, loadStudioProject, saveRecording, type StudioProjectInfo } from '@/lib/dj/studioStorage';
+import { Input } from '@/components/ui/input';
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
 
 const ALL_STEMS = { bass: true, drums: true, vocals: true, other: true };
@@ -59,6 +61,10 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
   const [snap, setSnap] = useState(true);
   const [head, setHead] = useState(0);
   const [busy, setBusy] = useState("");
+  const [projectName, setProjectName] = useState('Untitled');
+  const [projects, setProjects] = useState<StudioProjectInfo[]>([]);
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [fileStatus, setFileStatus] = useState('');
   const [PX_PER_BEAT, setPx] = useState(28);
   const [sel, setSel] = useState<number | null>(null);
   const clip = useRef<StudioClip | null>(null);
@@ -175,7 +181,7 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
 
   const selected = clips.find(c => c.id === sel) ?? null;
   const copySel = () => { if (selected) { clip.current = selected; setHasClip(true); } };
-  const cutSel = () => { if (!selected) return; copySel(); setClips(cs => cs.filter(x => x.id !== selected.id)); setSel(null); };
+  const cutSel = () => { if (!selected) return; copySel(); commit(cs => cs.filter(x => x.id !== selected.id)); setSel(null); };
   const pasteAt = (beat: number, lane: number) => {
     const c = clip.current; if (!c) return;
     const b = studioPlacement(beat, snap, gridStep);
@@ -332,7 +338,10 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
       const src = off.createBufferSource(); src.buffer = await prepareStudioClip(s.clip);
       connectStudioFx(off, src, off.destination, s.clip, s.delay, clipDuration(s.clip) - s.offset); src.start(s.delay, s.offset);
     }
-    const url = URL.createObjectURL(studioWav(await off.startRendering()));
+    const blob = studioWav(await off.startRendering());
+    const path = await saveRecording(`${projectName}-mix`, blob);
+    setFileStatus(`Saved ${path}`);
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = "studio-mix.wav"; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     setBusy("");
@@ -340,17 +349,39 @@ export function StudioView({ mixer, onClose }: { mixer: Mixer; onClose: () => vo
   };
 
   const fmt = (t: number) => `${Math.floor(t / beatSec / 4) + 1}.${(Math.floor(t / beatSec) % 4) + 1}`;
+  const saveProject = async () => {
+    setBusy('Saving project…'); setFileStatus('');
+    try { const info = await saveStudioProject(projectName,bpm,clips); setProjectName(info.name); setFileStatus(`Saved ${info.path}`); }
+    catch (e) { setFileStatus(e instanceof Error ? e.message : 'Project could not be saved.'); }
+    finally { setBusy(''); }
+  };
+  const openProjects = async () => {
+    setBusy('Reading projects…');
+    try { setProjects(await listStudioProjects()); setFilesOpen(true); }
+    catch { setFileStatus('Could not read saved projects.'); }
+    finally { setBusy(''); }
+  };
+  const openProject = async (name: string) => {
+    stop(); setBusy('Opening project…');
+    try { const p = await loadStudioProject(name,ctx); commit(() => p.clips); setBpm(p.bpm); setProjectName(name); nextId.current = Math.max(0,...p.clips.map(c => c.id)) + 1; setHead(0); setSel(null); setFilesOpen(false); setFileStatus(`Opened ${name}`); }
+    catch (e) { setFileStatus(e instanceof Error ? e.message : 'Project could not be opened.'); }
+    finally { setBusy(''); }
+  };
 
   return <div className="studio-screen fixed inset-0 z-[90] flex flex-col bg-background text-foreground">
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-2">
       <Button variant="ghost" onClick={() => { stop(); onClose(); }}><ArrowLeft />Mixer</Button>
       <h1 className="text-base font-semibold">Studio</h1>
       <div className="ml-auto flex items-center gap-1">
+        <Button variant="ghost" size="icon" className="size-9" aria-label="Save project" title="Save project" disabled={!!busy} onClick={() => void saveProject()}><Save className="size-4" /></Button>
+        <Button variant="ghost" size="icon" className="size-9" aria-label="Open saved project" title="Open saved project" disabled={!!busy} onClick={() => void openProjects()}><FolderOpen className="size-4" /></Button>
         <Button variant="ghost" size="icon" className="size-9" aria-label="Export mix as WAV" disabled={!clips.length || !!busy} onClick={() => void exportMix()}><Download className="size-4" /></Button>
         <Button size="sm" onClick={() => fileRef.current?.click()}><Plus />Add audio</Button>
         <input ref={fileRef} type="file" accept="audio/*" multiple hidden onChange={e => { void importFiles(e.target.files); e.target.value = ""; }} />
       </div>
     </header>
+    <div className="flex items-center gap-2 border-b border-border px-2 py-1"><Input aria-label="Project name" className="h-8 max-w-48" maxLength={60} value={projectName} onChange={e => setProjectName(e.target.value)} />{fileStatus && <span role="status" className="min-w-0 break-words text-xs text-muted-foreground">{fileStatus}</span>}</div>
+    {filesOpen && <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/90 p-3"><section role="dialog" aria-label="Saved projects" className="w-full max-w-sm rounded-lg border border-border bg-popover p-3"><div className="flex items-center justify-between"><h2 className="font-semibold">Saved projects</h2><Button variant="ghost" size="icon" aria-label="Close saved projects" onClick={() => setFilesOpen(false)}><X /></Button></div><div className="max-h-80 overflow-y-auto">{projects.length ? projects.map(p => <Button key={p.path} variant="ghost" className="h-auto w-full justify-between py-3" onClick={() => void openProject(p.name)} disabled={!!busy}><span className="min-w-0 truncate">{p.name}</span><span className="text-xs text-muted-foreground">{p.clips} clips</span></Button>) : <p className="py-5 text-sm text-muted-foreground">No saved projects</p>}</div></section></div>}
     <div className="studio-transport flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border bg-secondary px-2 py-1.5">
       <Button variant="outline" size="icon" className="size-9" aria-label="Go to start" disabled={!clips.length} onClick={() => { setHead(0); if (playing) start(0); }}><SkipBack className="size-4" /></Button>
       <Button variant="outline" size="icon" className="size-9 rounded-full" aria-label={playing ? "Stop" : "Play"} disabled={!clips.length} onClick={() => playing ? stop() : start(head)}>{playing ? <Square className="size-4" fill="currentColor" /> : <Play className="size-4" fill="currentColor" />}</Button>

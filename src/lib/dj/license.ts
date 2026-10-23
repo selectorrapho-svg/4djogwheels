@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getOfflineLicense, getLicensePublicKey } from './license.functions';
 import { canUseStudio, MAX_DEVICES, type OfflineEntitlement } from './licenseRules';
+import { authPhone } from './phoneRules';
 export { MAX_DEVICES };
 export const ADMIN_WHATSAPP = '254745260364';
 export const PRICE_KES = 150;
@@ -62,15 +63,17 @@ export function initializeLicense() {
 }
 export function useLicense() { return useSyncExternalStore(l => { listeners.add(l); return () => { listeners.delete(l); }; }, () => state, () => SERVER); }
 export const isPro = () => state.isPro && (state.isAdmin || (state.proUntil ?? 0) > Date.now());
-export async function signUp(email: string, name: string, password: string, phone: string) {
+export async function signUp(phone: string, name: string, password: string) {
   if (!name.trim() || password.length < 8) throw new Error('Enter your name and a password of at least 8 characters.');
-  const { error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: window.location.origin, data: { name: name.trim().slice(0,60), phone: normalizePhone(phone) } } });
+  const { error } = await supabase.auth.signUp({ phone: authPhone(phone), password, options: { data: { name: name.trim().slice(0,60) } } });
   if (error) throw error;
 }
-export async function logIn(email: string, password: string) { const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password }); if (error) throw error; await refreshLicense(); }
+export async function logIn(phone: string, password: string) { const { error } = await supabase.auth.signInWithPassword({ phone: authPhone(phone), password }); if (error) throw error; await refreshLicense(); }
+export async function verifyPhone(phone: string, token: string) { const { error } = await supabase.auth.verifyOtp({ phone: authPhone(phone), token, type: 'sms' }); if (error) throw error; await refreshLicense(); }
+export async function approvePhone(phone: string, expiresAt: string) { const { data, error } = await supabase.rpc('issue_phone_pro_code', { _phone: authPhone(phone), _expires_at: expiresAt }); if (error) throw error; return data; }
 export async function logOut() { ++epoch; localStorage.removeItem('djog.last.user'); localStorage.removeItem('djog.signed.pro'); publish({ user: null, isAdmin: false, isPro: false, proUntil: null }); const { error } = await supabase.auth.signOut(); if (error) throw error; }
 export function requestCode() { return state.user ? `REQ-${state.user.id}-${state.deviceId}` : ''; }
 export function whatsappPayUrl() { return `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(`Hello, I want djogwheels PRO (${PRICE_KES} KES / month).\nName: ${state.user?.name ?? ''}\nPhone: ${state.user?.phone ?? ''}\nRequest: ${requestCode()}`)}`; }
 export function parseRequest(text: string) { const m = text.match(/REQ-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-([A-F0-9]{8})/i); return m ? { userId: m[1].toLowerCase(), device: m[2].toUpperCase() } : null; }
 export async function approve(userId: string, device: string, months = 1) { const { data, error } = await supabase.rpc('issue_pro_code', { _user_id: userId, _device: device, _months: months }); if (error) throw error; return data; }
-export async function redeem(code: string) { const { error } = await supabase.rpc('redeem_pro_code', { _code: code, _device: state.deviceId }); if (error) throw error; await refreshLicense(); }
+export async function redeem(code: string) { const { error } = await supabase.rpc('redeem_phone_pro_code', { _code: code, _device: state.deviceId }); if (error) throw error; await refreshLicense(); }

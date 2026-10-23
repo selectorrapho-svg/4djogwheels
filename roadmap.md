@@ -1,5 +1,12 @@
 # Task roadmap
 
+## October 23 phone accounts and compact deck controls
+- [ ] Phone/password accounts, verified admin 0745260364 and phone-based codes lasting 1–12 months on two devices.
+- [ ] Device-local Studio Save/Open and recording persistence without Studio login gate.
+- [ ] Deck-side compact FX/tools with eight pads, updated icons, round transport and lower portrait pitch menu.
+- [ ] Smooth rainbow volume meter and scratch freeze/noise regression fixes.
+- [ ] Verify account/code rules, saves and loaded playback; SMS provider setup and Android headphone checks may require user action.
+
 ## October 22 saves, dark controls and phone accounts
 - [ ] Wire Studio Save/Open and save exported recordings to duigsstudio.
 - [ ] Attach Key Adjust to both deck layouts; preserve tempo on key shifts.

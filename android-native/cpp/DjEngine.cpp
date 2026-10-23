@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <vector>
+#include "ScratchTarget.h"
 
 namespace {
 
@@ -32,6 +33,8 @@ struct Deck {
   std::atomic<bool> follow{false};
   std::atomic<double> followPos{0.0};  // seconds
   std::atomic<double> followVel{0.0};
+  std::atomic<uint64_t> followRevision{0};
+  ScratchTarget scratchTarget;
 };
 
 class Engine : public oboe::AudioStreamDataCallback, public oboe::AudioStreamErrorCallback {
@@ -115,13 +118,19 @@ class Engine : public oboe::AudioStreamDataCallback, public oboe::AudioStreamErr
       // and never jumps, which is what causes clicks.
       const double abW = 2.0 * M_PI * 45.0 / sampleRate;
       const double abA = 2.0 * abW, abB = abW * abW;
-      const double fPos = d.followPos.load() * sampleRate;
-      const double fVel = std::max(-24.0, std::min(24.0, d.followVel.load()));
+      // Never spin on the UI writer from the real-time callback. Read one
+      // consistent snapshot, or keep the last trajectory for this block.
+      const auto revision = d.followRevision.load();
+      if ((revision & 1) == 0) {
+        const double pos = d.followPos.load() * sampleRate;
+        const double vel = std::max(-24.0, std::min(24.0, d.followVel.load()));
+        if (d.followRevision.load() == revision) d.scratchTarget.update(revision,pos,vel);
+      }
       float gTarget = d.volume.load() * d.xfade.load();
       for (int i = 0; i < frames; ++i) {
         double prev = d.pos;
         if (follow) {
-          double goal = fPos + fVel * i;
+          double goal = d.scratchTarget.goal(i,sampleRate);
           double err = goal - (d.pos + d.rate);
           double step = std::max(-24.0, std::min(24.0, d.rate + abA * err));
           d.rate = std::max(-24.0, std::min(24.0, d.rate + abB * err));
@@ -142,6 +151,7 @@ class Engine : public oboe::AudioStreamDataCallback, public oboe::AudioStreamErr
         out[i * 2] += hermite(data, n, idx, f, 0) * d.gain * slow;
         out[i * 2 + 1] += hermite(data, n, idx, f, 1) * d.gain * slow;
       }
+      if (follow) d.scratchTarget.advance(frames);
       d.reportedPos.store(d.pos / sampleRate);
     }
     for (int i = 0; i < frames * 2; ++i) out[i] = std::tanh(out[i]);  // soft limiter
@@ -176,7 +186,10 @@ JNIEXPORT void JNICALL Java_app_lovable_djogpro_NativeDj_nPlay(JNIEnv*, jclass, 
 }
 JNIEXPORT void JNICALL Java_app_lovable_djogpro_NativeDj_nTarget(JNIEnv*, jclass, jint deck, jdouble pos, jdouble vel) {
   auto& d = gEngine->decks[deck & 3];
-  d.followPos = pos; d.followVel = vel; d.follow = true; d.playing = true;
+  d.followRevision.fetch_add(1);
+  d.followPos = pos; d.followVel = vel;
+  d.followRevision.fetch_add(1);
+  d.follow = true; d.playing = true;
 }
 JNIEXPORT void JNICALL Java_app_lovable_djogpro_NativeDj_nPause(JNIEnv*, jclass, jint deck) {
   gEngine->decks[deck & 3].follow = false;

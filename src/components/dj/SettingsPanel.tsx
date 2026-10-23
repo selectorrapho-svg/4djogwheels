@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Settings, X, Music2, Video, Layers, Disc3, Circle, Gamepad2, UserRound, ChevronRight, ArrowLeft, FolderOpen, FileAudio } from "lucide-react";
 import { deviceLibrary } from "@/lib/dj/deviceLibrary";
 import { blobToWav, type RecordingKind, type VideoQuality } from "@/lib/dj/recording";
+import { saveRecording } from '@/lib/dj/studioStorage';
 import { getMixer } from "@/lib/dj/useMixer";
 import { AppMode } from "@/hooks/useAppMode";
 import { WAVE_COLORS } from "@/lib/dj/wavedraw";
@@ -77,6 +78,8 @@ export function SettingsPanel({
         try { blob = await blobToWav(blob); setStatus(""); } catch { setStatus("WAV conversion failed — saved as WebM."); }
       }
       if (blob && blob.size) {
+        try { setStatus(`Saved ${await saveRecording(`mix-${Date.now()}`,blob)}`); }
+        catch { setStatus('Device folder save failed; downloading the recording instead.'); }
         const url = URL.createObjectURL(blob);
         const ext = blob.type.includes("wav") ? "wav" : blob.type.includes("mp4") ? "mp4" : "webm";
         const a = document.createElement("a");
