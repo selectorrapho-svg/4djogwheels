@@ -8,6 +8,13 @@
       "when": 1792464227528,
       "tag": "0000_secure_dj_accounts_licenses",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792726290608,
+      "tag": "0001_phone_subscription_codes",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,64 @@ export type Database = {
   }
   public: {
     Tables: {
+      phone_code_devices: {
+        Row: {
+          code_id: string
+          device_id: string
+        }
+        Insert: {
+          code_id: string
+          device_id: string
+        }
+        Update: {
+          code_id?: string
+          device_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phone_code_devices_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "phone_pro_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phone_pro_codes: {
+        Row: {
+          code_hash: string
+          expires_at: string
+          id: string
+          issued_at: string
+          issued_by: string
+          target_user_id: string
+        }
+        Insert: {
+          code_hash: string
+          expires_at: string
+          id?: string
+          issued_at?: string
+          issued_by: string
+          target_user_id: string
+        }
+        Update: {
+          code_hash?: string
+          expires_at?: string
+          id?: string
+          issued_at?: string
+          issued_by?: string
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phone_pro_codes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pro_codes: {
         Row: {
           code_hash: string
@@ -129,8 +187,16 @@ export type Database = {
     }
     Functions: {
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      issue_phone_pro_code: {
+        Args: { _expires_at: string; _phone: string }
+        Returns: string
+      }
       issue_pro_code: {
         Args: { _device: string; _months: number; _user_id: string }
+        Returns: string
+      }
+      redeem_phone_pro_code: {
+        Args: { _code: string; _device: string }
         Returns: string
       }
       redeem_pro_code: {
